@@ -37,9 +37,17 @@ if not exist "%~dp0.gitmobile\node_modules" (
   )
 )
 
-REM 3. Configure Git auto-upstream, non-blocking SSH, and upstream remote
+REM 3. Configure Git auto-upstream, non-blocking SSH, upstream remote, and identity
 git config push.autoSetupRemote true >nul 2>nul
 git config core.sshCommand "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new" >nul 2>nul
+git config user.name >nul 2>nul
+if %errorlevel% neq 0 (
+  git config --global user.name "GitMobile User" >nul 2>nul
+)
+git config user.email >nul 2>nul
+if %errorlevel% neq 0 (
+  git config --global user.email "gitmobile@localhost" >nul 2>nul
+)
 git remote add upstream https://github.com/potatobun321/git-mobile-.git >nul 2>nul
 
 REM 4. Launch Server

@@ -431,6 +431,28 @@ app.post('/api/remote', async (req, res) => {
   }
 });
 
+// API: Get or Set Git User (Author Name & Email)
+app.get('/api/git-user', async (req, res) => {
+  try {
+    const activeRepo = getActiveRepo(req);
+    const user = await gitOps.getGitUser(activeRepo.path);
+    res.json({ success: true, ...user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/git-user', async (req, res) => {
+  try {
+    const activeRepo = getActiveRepo(req);
+    const { name, email } = req.body;
+    const result = await gitOps.setGitUser(activeRepo.path, name, email);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // API: Execute Custom Git Command
 app.post('/api/exec', async (req, res) => {
   try {

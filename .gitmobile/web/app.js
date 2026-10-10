@@ -99,6 +99,11 @@ const elements = {
   remoteModal: document.getElementById('remoteModal'),
   remoteUrlInput: document.getElementById('remoteUrlInput'),
   saveRemoteBtn: document.getElementById('saveRemoteBtn'),
+  gitUserModal: document.getElementById('gitUserModal'),
+  gitUserNameInput: document.getElementById('gitUserNameInput'),
+  gitUserEmailInput: document.getElementById('gitUserEmailInput'),
+  openGitUserModalBtn: document.getElementById('openGitUserModalBtn'),
+  saveGitUserBtn: document.getElementById('saveGitUserBtn'),
   commitModal: document.getElementById('commitModal'),
   uploadModal: document.getElementById('uploadModal'),
   diffModal: document.getElementById('diffModal'),
@@ -652,6 +657,47 @@ elements.saveRemoteBtn.addEventListener('click', async () => {
     showToast('Failed to set remote: ' + err.message, 'error');
   }
 });
+
+async function loadGitUserInfo() {
+  try {
+    const res = await apiRequest('/api/git-user');
+    if (res.success) {
+      if (elements.gitUserNameInput) elements.gitUserNameInput.value = res.name || '';
+      if (elements.gitUserEmailInput) elements.gitUserEmailInput.value = res.email || '';
+    }
+  } catch (_) {}
+}
+
+if (elements.openGitUserModalBtn) {
+  elements.openGitUserModalBtn.addEventListener('click', () => {
+    loadGitUserInfo();
+    openModal(elements.gitUserModal);
+  });
+}
+
+if (elements.saveGitUserBtn) {
+  elements.saveGitUserBtn.addEventListener('click', async () => {
+    const name = elements.gitUserNameInput.value.trim();
+    const email = elements.gitUserEmailInput.value.trim();
+    try {
+      elements.saveGitUserBtn.disabled = true;
+      const res = await apiRequest('/api/git-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email })
+      });
+      if (res.success) {
+        showToast('Git author identity saved', 'success');
+        logToConsole(`Updated Git user: ${name || 'none'} <${email || 'none'}>`, 'success');
+        closeModals();
+      }
+    } catch (err) {
+      showToast('Failed to save identity: ' + err.message, 'error');
+    } finally {
+      elements.saveGitUserBtn.disabled = false;
+    }
+  });
+}
 
 // Repository Status & Dashboard
 async function loadRepoStatus() {

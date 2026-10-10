@@ -86,9 +86,15 @@ if echo "$SSH_CHECK" | grep -q "Permission denied"; then
   read -p "Press ENTER after adding the key to GitHub to continue..." _
 fi
 
-# Configure Git automatic upstream tracking for this repo
+# Configure Git automatic upstream tracking and identity
 git config push.autoSetupRemote true 2>/dev/null || true
 git config core.sshCommand "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new" 2>/dev/null || true
+if [ -z "$(git config user.name 2>/dev/null)" ]; then
+  git config --global user.name "GitMobile User" 2>/dev/null || git config user.name "GitMobile User" 2>/dev/null || true
+fi
+if [ -z "$(git config user.email 2>/dev/null)" ]; then
+  git config --global user.email "gitmobile@localhost" 2>/dev/null || git config user.email "gitmobile@localhost" 2>/dev/null || true
+fi
 git remote add upstream https://github.com/potatobun321/git-mobile-.git 2>/dev/null || true
 
 # 4. Launch Server

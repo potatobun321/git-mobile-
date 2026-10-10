@@ -128,12 +128,82 @@ async function pullRepo(repoPath) {
 }
 
 /**
+ * Ensure git user.name and user.email are configured to avoid author identity errors
+ */
+async function ensureGitIdentity(repoPath) {
+  try {
+    let name = '';
+    let email = '';
+    try {
+      const nRes = await runGit(repoPath, ['config', 'user.name']);
+      name = (nRes.stdout || '').trim();
+    } catch (_) {}
+
+    try {
+      const eRes = await runGit(repoPath, ['config', 'user.email']);
+      email = (eRes.stdout || '').trim();
+    } catch (_) {}
+
+    if (!name) {
+      await runGit(repoPath, ['config', 'user.name', 'GitMobile User']);
+      try {
+        await runGit(repoPath, ['config', '--global', 'user.name', 'GitMobile User']);
+      } catch (_) {}
+    }
+    if (!email) {
+      await runGit(repoPath, ['config', 'user.email', 'gitmobile@localhost']);
+      try {
+        await runGit(repoPath, ['config', '--global', 'user.email', 'gitmobile@localhost']);
+      } catch (_) {}
+    }
+  } catch (_) {
+    try {
+      await runGit(repoPath, ['config', '--global', 'user.name', 'GitMobile User']);
+      await runGit(repoPath, ['config', '--global', 'user.email', 'gitmobile@localhost']);
+    } catch (_) {}
+  }
+}
+
+async function getGitUser(repoPath) {
+  let name = '';
+  let email = '';
+  try {
+    const n = await runGit(repoPath, ['config', 'user.name']);
+    name = (n.stdout || '').trim();
+  } catch (_) {}
+  try {
+    const e = await runGit(repoPath, ['config', 'user.email']);
+    email = (e.stdout || '').trim();
+  } catch (_) {}
+  return { name, email };
+}
+
+async function setGitUser(repoPath, name, email) {
+  if (name && name.trim()) {
+    await runGit(repoPath, ['config', 'user.name', name.trim()]);
+    try {
+      await runGit(repoPath, ['config', '--global', 'user.name', name.trim()]);
+    } catch (_) {}
+  }
+  if (email && email.trim()) {
+    await runGit(repoPath, ['config', 'user.email', email.trim()]);
+    try {
+      await runGit(repoPath, ['config', '--global', 'user.email', email.trim()]);
+    } catch (_) {}
+  }
+  return { success: true, name, email };
+}
+
+/**
  * Commit changes
  */
 async function commitRepo(repoPath, message, files = []) {
   if (!message || !message.trim()) {
     throw new Error('Commit message is required');
   }
+
+  // Auto-heal missing Git author identity (prevents 'Author identity unknown' errors)
+  await ensureGitIdentity(repoPath);
 
   if (files && files.length > 0) {
     await runGit(repoPath, ['add', ...files]);
@@ -544,5 +614,8 @@ module.exports = {
   ensureUpstreamRemote,
   checkEngineUpdates,
   applyEngineUpdate,
-  cloneRepository
+  cloneRepository,
+  ensureGitIdentity,
+  getGitUser,
+  setGitUser
 };

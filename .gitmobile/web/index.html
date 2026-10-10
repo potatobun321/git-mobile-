@@ -71,7 +71,10 @@
       <span class="remote-dot" id="remoteDot"></span>
       <span class="remote-text" id="remoteStatusText">GitHub Remote: Not Linked</span>
     </div>
-    <button class="btn btn-sm btn-subtle" id="openRemoteModalBtn">Configure Remote</button>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-sm btn-subtle" id="openRemoteModalBtn">Remote</button>
+      <button class="btn btn-sm btn-subtle" id="openGitUserModalBtn" title="Git Author Identity">Identity</button>
+    </div>
   </div>
 
   <!-- Engine Upstream Update Banner -->
@@ -333,6 +336,29 @@
       <div class="modal-footer">
         <button class="btn btn-subtle" onclick="closeModals()">Cancel</button>
         <button class="btn btn-primary" id="saveRemoteBtn">Save Remote</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIGURE GIT AUTHOR IDENTITY -->
+  <div class="modal" id="gitUserModal">
+    <div class="modal-backdrop" onclick="closeModals()"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Git Author Identity</h3>
+        <button class="btn-close" onclick="closeModals()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="gitUserNameInput">Author Name</label>
+        <input type="text" id="gitUserNameInput" class="input-mono" placeholder="e.g. potatobun321">
+
+        <label class="form-label" for="gitUserEmailInput" style="margin-top: 12px;">Author Email</label>
+        <input type="email" id="gitUserEmailInput" class="input-mono" placeholder="e.g. you@example.com">
+        <p class="form-hint">Sets your Git commit authorship in this repository.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-subtle" onclick="closeModals()">Cancel</button>
+        <button class="btn btn-primary" id="saveGitUserBtn">Save Identity</button>
       </div>
     </div>
   </div>
