@@ -453,8 +453,14 @@ async function checkEngineUpdates(repoPath) {
       upstreamCommit = commitRes.stdout.trim();
     } catch (_) {}
 
+    let currentVersion = '2.0.0';
+    try {
+      currentVersion = require('../package.json').version || '2.0.0';
+    } catch (_) {}
+
     return {
       success: true,
+      currentVersion,
       updateAvailable: hasUpdates,
       upstreamCommit
     };

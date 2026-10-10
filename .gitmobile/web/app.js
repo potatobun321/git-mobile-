@@ -553,20 +553,25 @@ async function checkEngineUpdates(quiet = false) {
     elements.engineStatusBadge.textContent = 'Checking...';
     elements.engineStatusBadge.className = 'state-pill';
     const res = await apiRequest('/api/engine/status');
+    const ver = res.currentVersion ? `v${res.currentVersion}` : 'v2.0.0';
+
+    if (elements.engineStatusDesc) {
+      elements.engineStatusDesc.textContent = `Version ${ver} • Upstream: potatobun321/git-mobile- (engine files .gitmobile, startup.bat, startup.sh)`;
+    }
 
     if (res.updateAvailable) {
       elements.engineUpdateBanner.style.display = 'flex';
       elements.engineUpdateText.textContent = res.upstreamCommit ? `Update available: ${res.upstreamCommit}` : 'Engine update available';
-      elements.engineStatusBadge.textContent = 'Update Available';
+      elements.engineStatusBadge.textContent = `${ver} • Update Available`;
       elements.engineStatusBadge.className = 'state-pill dirty';
       elements.updateEngineCardBtn.style.display = 'inline-block';
-      if (!quiet) showToast('New .gitmobile engine update available!', 'info');
+      if (!quiet) showToast(`New .gitmobile update available!`, 'info');
     } else {
       elements.engineUpdateBanner.style.display = 'none';
-      elements.engineStatusBadge.textContent = 'Up to date';
+      elements.engineStatusBadge.textContent = `${ver} • Up to date`;
       elements.engineStatusBadge.className = 'state-pill clean';
       elements.updateEngineCardBtn.style.display = 'none';
-      if (!quiet) showToast('.gitmobile is up to date with upstream.', 'success');
+      if (!quiet) showToast(`.gitmobile ${ver} is up to date with upstream.`, 'success');
     }
   } catch (err) {
     elements.engineStatusBadge.textContent = 'Check failed';

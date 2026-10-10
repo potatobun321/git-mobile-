@@ -4,6 +4,8 @@ node_modules/
 
 # Local configurations & secrets
 .gitmobile/config.json
+.gitmobile/repos.json
+.gitmobile/repos/
 .env
 
 # OS Files
