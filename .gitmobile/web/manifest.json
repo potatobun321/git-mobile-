@@ -1,0 +1,18 @@
+{
+  "name": ".gitmobile",
+  "short_name": "GitMobile",
+  "description": "Mobile Git Control Center & Bridge",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

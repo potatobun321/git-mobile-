@@ -190,6 +190,41 @@ body {
   background-color: var(--success-fg);
 }
 
+/* Engine Upstream Update Banner */
+.update-banner {
+  background-color: rgba(56, 139, 253, 0.12);
+  border-bottom: 1px solid rgba(56, 139, 253, 0.3);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--accent-fg);
+}
+
+.update-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.update-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent-fg);
+  flex-shrink: 0;
+  animation: pulse-dot 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
 /* ==========================================================================
    Main Content Views
    ========================================================================== */
@@ -786,3 +821,67 @@ body {
 
 .toast.success { border-color: var(--success-fg); }
 .toast.error { border-color: var(--danger-fg); }
+
+/* ==========================================================================
+   Diff Viewer
+   ========================================================================== */
+.status-row.clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.status-row.clickable:hover {
+  background-color: var(--canvas-default);
+}
+
+.status-row.clickable:active {
+  background-color: var(--canvas-inset);
+}
+
+.diff-container {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  background-color: var(--canvas-inset);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre;
+}
+
+.diff-empty {
+  padding: 16px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.diff-line {
+  padding: 1px 10px;
+  display: block;
+}
+
+.diff-line.add {
+  background-color: rgba(46, 160, 67, 0.18);
+  color: #3fb950;
+}
+
+.diff-line.del {
+  background-color: rgba(248, 81, 73, 0.18);
+  color: #f85149;
+}
+
+.diff-line.hunk {
+  background-color: rgba(56, 139, 253, 0.18);
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.diff-line.header {
+  color: var(--fg-subtle);
+  font-weight: 600;
+}
+
+.diff-line.ctx {
+  color: var(--fg-muted);
+}

@@ -15,7 +15,7 @@ const WEB_DIR = path.resolve(__dirname, '../web');
 // Read config if present
 let config = {
   port: 3000,
-  pin: '', // blank means no PIN required
+  pin: '', // blank or unspecified will generate a secure PIN
   host: '0.0.0.0'
 };
 
@@ -28,8 +28,15 @@ if (fs.existsSync(CONFIG_FILE)) {
   }
 }
 
-const PORT = process.env.PORT || config.port || 3000;
-const HOST = process.env.HOST || config.host || '127.0.0.1';
+// Auto-generate friendly 4-digit PIN if not explicitly disabled or set
+if (config.pin === 'none' || config.pin === 'disabled') {
+  config.pin = '';
+} else if (!config.pin) {
+  config.pin = Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+const PORT = parseInt(process.env.PORT || config.port || 3000, 10);
+const HOST = process.env.HOST || config.host || '0.0.0.0';
 
 // Setup file upload handling with multer
 const storage = multer.diskStorage({
@@ -193,6 +200,37 @@ app.get('/api/history', async (req, res) => {
   }
 });
 
+// API: File or Repo Diff
+app.get('/api/diff', async (req, res) => {
+  try {
+    const filePath = req.query.file || '';
+    const diff = await gitOps.getFileDiff(REPO_ROOT, filePath);
+    res.json({ success: true, file: filePath, diff });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message || err });
+  }
+});
+
+// API: Check Upstream Engine Updates
+app.get('/api/engine/status', async (req, res) => {
+  try {
+    const status = await gitOps.checkEngineUpdates(REPO_ROOT);
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message || err });
+  }
+});
+
+// API: Apply Upstream Engine Update
+app.post('/api/engine/update', async (req, res) => {
+  try {
+    const result = await gitOps.applyEngineUpdate(REPO_ROOT);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message || err });
+  }
+});
+
 // API: Browse Files
 app.get('/api/files', (req, res) => {
   try {
@@ -291,41 +329,59 @@ function getLanIp() {
   return '127.0.0.1';
 }
 
-// Start listening
-app.listen(PORT, HOST, () => {
-  const lanIp = getLanIp();
-  const mobileUrl = `http://${lanIp}:${PORT}`;
-  const localUrl = `http://localhost:${PORT}`;
+// Start listening with automatic port failover
+function startServer(targetPort, attemptsLeft = 10) {
+  const currentPort = targetPort;
+  const srv = app.listen(currentPort, HOST, () => {
+    const lanIp = getLanIp();
+    const pinQuery = config.pin ? `?pin=${config.pin}` : '';
+    const mobileUrl = `http://${lanIp}:${currentPort}/${pinQuery}`;
+    const localUrl = `http://localhost:${currentPort}/${pinQuery}`;
 
-  console.log('\n================================================================');
-  console.log('       .gitmobile — Mobile Git Control Center & Bridge          ');
-  console.log('================================================================');
-  console.log(`  📂 Repository : ${REPO_ROOT}`);
-  console.log(`  🔒 PIN Auth   : ${config.pin ? 'ENABLED (' + config.pin + ')' : 'DISABLED (Open)'}`);
+    console.log('\n  gitmobile');
+    console.log('  ---------');
+    console.log(`  Repository: ${REPO_ROOT}`);
+    console.log(`  PIN Auth:   ${config.pin ? 'Enabled (' + config.pin + ')' : 'Disabled'}`);
+    if (currentPort !== PORT) {
+      console.log(`  Port:       ${currentPort} (initial port ${PORT} was busy)`);
+    }
 
-  // Print Terminal ASCII QR Code
-  try {
-    const qrcode = require('qrcode-terminal');
-    console.log('\n  📱 Scan with your phone camera to open:\n');
-    qrcode.generate(mobileUrl, { small: true }, (qr) => {
-      console.log(qr.split('\n').map(line => '     ' + line).join('\n'));
-    });
-  } catch (_) {}
+    // Ensure upstream repository remote is registered in the background
+    gitOps.ensureUpstreamRemote(REPO_ROOT).catch(() => {});
 
-  // High-Visibility Copyable URL Box
-  console.log('\n  ┌────────────────────────────────────────────────────────────┐');
-  console.log(`  │  📱 Mobile Access URL (Tap or Copy):                       │`);
-  console.log(`  │  👉  ${mobileUrl.padEnd(52)}│`);
-  console.log(`  │                                                            │`);
-  console.log(`  │  💻  Local Access: ${localUrl.padEnd(41)}│`);
-  console.log('  └────────────────────────────────────────────────────────────┘');
+    // Print Terminal ASCII QR Code
+    try {
+      const qrcode = require('qrcode-terminal');
+      console.log('\n  Scan with phone camera:\n');
+      qrcode.generate(mobileUrl, { small: true }, (qr) => {
+        console.log(qr.split('\n').map(line => '  ' + line).join('\n'));
+      });
+    } catch (_) {}
 
-  // Termux auto-launch check
-  if (process.env.TERMUX_VERSION || fs.existsSync('/data/data/com.termux')) {
-    console.log('\n  [Termux Detected] Launching mobile browser...');
-    const { exec } = require('child_process');
-    exec(`termux-open-url ${localUrl}`, () => {});
-  }
+    console.log('\n  Mobile URL: ' + mobileUrl);
+    console.log('  Local URL:  ' + localUrl + '\n');
 
-  console.log('\n================================================================\n');
-});
+    // Termux auto-launch check
+    if (process.env.TERMUX_VERSION || fs.existsSync('/data/data/com.termux')) {
+      console.log('  [Termux] Launching mobile browser...');
+      const { exec } = require('child_process');
+      exec(`termux-open-url ${localUrl}`, () => {});
+    }
+  });
+
+  srv.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      if (attemptsLeft > 0) {
+        startServer(currentPort + 1, attemptsLeft - 1);
+      } else {
+        console.error(`\n  [Error] Port ${PORT} and subsequent fallback ports are all in use.\n`);
+        process.exit(1);
+      }
+    } else {
+      console.error('\n  [Server Error]', err.message);
+      process.exit(1);
+    }
+  });
+}
+
+startServer(PORT);

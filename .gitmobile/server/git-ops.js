@@ -368,6 +368,146 @@ async function executeCustomGit(repoPath, commandString) {
   return await runGit(repoPath, args);
 }
 
+/**
+ * Get unified git diff for a specific file or the entire working tree
+ */
+async function getFileDiff(repoPath, filePath = '') {
+  try {
+    const args = ['diff'];
+    if (filePath) {
+      args.push('HEAD', '--', filePath);
+    } else {
+      args.push('HEAD');
+    }
+    const res = await runGit(repoPath, args);
+    if (res.stdout) return res.stdout;
+
+    // Fallback checks for staged or unstaged changes
+    if (filePath) {
+      const cached = await runGit(repoPath, ['diff', '--cached', '--', filePath]);
+      if (cached.stdout) return cached.stdout;
+      const plain = await runGit(repoPath, ['diff', '--', filePath]);
+      if (plain.stdout) return plain.stdout;
+
+      // If untracked file, show full content as addition
+      const fullPath = path.resolve(repoPath, filePath);
+      if (fs.existsSync(fullPath) && !fs.statSync(fullPath).isDirectory()) {
+        try {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const lines = content.split('\n');
+          return `--- /dev/null\n+++ b/${filePath}\n@@ -0,0 +1,${lines.length} @@\n` + lines.map(l => '+' + l).join('\n');
+        } catch (_) {}
+      }
+    }
+    return res.stdout || '';
+  } catch (err) {
+    try {
+      const fallback = await runGit(repoPath, filePath ? ['diff', '--', filePath] : ['diff']);
+      return fallback.stdout || '';
+    } catch (_) {
+      return '';
+    }
+  }
+}
+
+const UPSTREAM_URL = 'https://github.com/potatobun321/git-mobile-.git';
+
+/**
+ * Ensure the official .gitmobile upstream remote is configured
+ */
+async function ensureUpstreamRemote(repoPath, upstreamUrl = UPSTREAM_URL) {
+  try {
+    const res = await runGit(repoPath, ['remote', 'get-url', 'upstream']);
+    if (res.stdout !== upstreamUrl) {
+      await runGit(repoPath, ['remote', 'set-url', 'upstream', upstreamUrl]);
+    }
+  } catch (_) {
+    try {
+      await runGit(repoPath, ['remote', 'add', 'upstream', upstreamUrl]);
+    } catch (_) {}
+  }
+}
+
+/**
+ * Check if the official upstream engine has updates available
+ */
+async function checkEngineUpdates(repoPath) {
+  await ensureUpstreamRemote(repoPath);
+  try {
+    await runGit(repoPath, ['fetch', 'upstream', 'master', '--depth=1']);
+
+    const diffRes = await runGit(repoPath, [
+      'diff',
+      'HEAD...upstream/master',
+      '--',
+      '.gitmobile',
+      'startup.bat',
+      'startup.sh'
+    ]);
+
+    const hasUpdates = Boolean(diffRes.stdout && diffRes.stdout.trim().length > 0);
+
+    let upstreamCommit = '';
+    try {
+      const commitRes = await runGit(repoPath, ['log', '-n', '1', '--pretty=format:%h - %s (%cr)', 'upstream/master']);
+      upstreamCommit = commitRes.stdout.trim();
+    } catch (_) {}
+
+    return {
+      success: true,
+      updateAvailable: hasUpdates,
+      upstreamCommit
+    };
+  } catch (err) {
+    return {
+      success: false,
+      updateAvailable: false,
+      error: err.stderr || err.message
+    };
+  }
+}
+
+/**
+ * Selectively update .gitmobile engine files from upstream master without touching user content
+ */
+async function applyEngineUpdate(repoPath) {
+  await ensureUpstreamRemote(repoPath);
+
+  // Preserve config.json if present
+  const configPath = path.join(repoPath, '.gitmobile', 'config.json');
+  let configBackup = null;
+  if (fs.existsSync(configPath)) {
+    try {
+      configBackup = fs.readFileSync(configPath, 'utf8');
+    } catch (_) {}
+  }
+
+  // Fetch full upstream master
+  await runGit(repoPath, ['fetch', 'upstream', 'master']);
+
+  // Checkout only the engine files
+  await runGit(repoPath, [
+    'checkout',
+    'upstream/master',
+    '--',
+    '.gitmobile',
+    'startup.bat',
+    'startup.sh'
+  ]);
+
+  // Restore preserved config.json
+  if (configBackup) {
+    try {
+      fs.writeFileSync(configPath, configBackup, 'utf8');
+    } catch (_) {}
+  }
+
+  return {
+    success: true,
+    message: 'Successfully updated .gitmobile engine to the latest upstream release.'
+  };
+}
+
 module.exports = {
   runGit,
   getRepoStatus,
@@ -381,5 +521,9 @@ module.exports = {
   writeSafeFile,
   getRemoteUrl,
   setRemoteUrl,
-  executeCustomGit
+  executeCustomGit,
+  getFileDiff,
+  ensureUpstreamRemote,
+  checkEngineUpdates,
+  applyEngineUpdate
 };

@@ -86,6 +86,17 @@ Want to give an existing repository mobile control?
 
 ---
 
+## Updating .gitmobile from Upstream
+
+Even if your repository points to your own personal GitHub account, you can update the `.gitmobile` engine at any time without touching your personal notes, papers, or git commits:
+
+* **From your phone:** Open the **Console** tab and tap **"Check for Updates"** / **"Update to Latest"** (or click the update banner when a new release is detected).
+* **From your computer:** Run `update.bat` (Windows) or `bash update.sh` (Linux / macOS / Termux).
+
+This selectively pulls only the `.gitmobile` engine and startup scripts from the official upstream repository (`potatobun321/git-mobile-`).
+
+---
+
 ## Features
 
 | Feature | Description |

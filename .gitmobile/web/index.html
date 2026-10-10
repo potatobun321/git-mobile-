@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>.gitmobile - Mobile Git Client</title>
   <link rel="icon" type="image/png" href="logo.png">
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Segoe+UI:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,6 +52,15 @@
       <span class="remote-text" id="remoteStatusText">GitHub Remote: Not Linked</span>
     </div>
     <button class="btn btn-sm btn-subtle" id="openRemoteModalBtn">Configure Remote</button>
+  </div>
+
+  <!-- Engine Upstream Update Banner -->
+  <div class="update-banner" id="engineUpdateBanner" style="display:none;">
+    <div class="update-banner-left">
+      <span class="update-dot"></span>
+      <span class="update-text" id="engineUpdateText">.gitmobile update available</span>
+    </div>
+    <button class="btn btn-sm btn-primary" id="applyEngineUpdateBtn">Update Engine</button>
   </div>
 
   <!-- Main Views Container -->
@@ -118,7 +128,10 @@
       <div class="block-card">
         <div class="block-header">
           <span class="block-title">Working Tree Status</span>
-          <span class="state-pill" id="changesBadge">Clean</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn btn-sm btn-subtle" id="viewAllDiffsBtn" onclick="openDiffViewer('')" style="display:none;padding:2px 8px;font-size:0.75rem;">Diff All</button>
+            <span class="state-pill" id="changesBadge">Clean</span>
+          </div>
         </div>
         <div id="statusListContainer" class="status-box">
           <div class="empty-state">Working tree clean. Nothing to commit.</div>
@@ -213,6 +226,21 @@
             <span class="chip" onclick="fillGitCmd('log --oneline -n 5')">log -n 5</span>
             <span class="chip" onclick="fillGitCmd('diff --stat')">diff --stat</span>
             <span class="chip" onclick="fillGitCmd('remote -v')">remote -v</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Engine Upstream Sync Card -->
+      <div class="block-card">
+        <div class="block-header">
+          <span class="block-title">Engine Upstream Sync</span>
+          <span class="state-pill" id="engineStatusBadge">Up to date</span>
+        </div>
+        <div class="card-inner">
+          <p class="card-desc" id="engineStatusDesc">Upstream: potatobun321/git-mobile- (engine files .gitmobile, startup.bat, startup.sh)</p>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-sm btn-subtle" id="checkEngineUpdatesBtn">Check for Updates</button>
+            <button class="btn btn-sm btn-primary" id="updateEngineCardBtn" style="display:none;">Update to Latest</button>
           </div>
         </div>
       </div>
@@ -357,6 +385,23 @@
       <div class="modal-footer">
         <button class="btn btn-subtle" onclick="closeModals()">Close</button>
         <button class="btn btn-primary" id="openInEditorBtn">Edit Note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DIFF VIEWER -->
+  <div class="modal" id="diffModal">
+    <div class="modal-backdrop" onclick="closeModals()"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="diffModalTitle" class="label-mono">Working Tree Diff</h3>
+        <button class="btn-close" onclick="closeModals()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="diffContentContainer" class="diff-container"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-subtle" onclick="closeModals()">Close</button>
       </div>
     </div>
   </div>

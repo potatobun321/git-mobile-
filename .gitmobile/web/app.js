@@ -2,6 +2,24 @@
  * .gitmobile - GitHub Primer Client Logic
  */
 
+// Check for PIN or Token in URL query string (for automatic camera QR login)
+const urlParams = new URLSearchParams(window.location.search);
+const pinFromUrl = urlParams.get('pin') || urlParams.get('token');
+if (pinFromUrl) {
+  localStorage.setItem('gitmobile_pin', pinFromUrl);
+  if (window.history && window.history.replaceState) {
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+}
+
+// Register PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 const state = {
   currentTab: 'dashboard',
   currentFolder: '',
@@ -27,6 +45,7 @@ const elements = {
   pendingChangesCount: document.getElementById('pendingChangesCount'),
   pendingCounterLabel: document.getElementById('pendingCounterLabel'),
   changesBadge: document.getElementById('changesBadge'),
+  viewAllDiffsBtn: document.getElementById('viewAllDiffsBtn'),
   statusListContainer: document.getElementById('statusListContainer'),
   quickPapersList: document.getElementById('quickPapersList'),
   papersCount: document.getElementById('papersCount'),
@@ -64,12 +83,24 @@ const elements = {
   uploadAutoCommit: document.getElementById('uploadAutoCommit'),
   confirmUploadBtn: document.getElementById('confirmUploadBtn'),
 
+  // Engine Updates
+  engineUpdateBanner: document.getElementById('engineUpdateBanner'),
+  engineUpdateText: document.getElementById('engineUpdateText'),
+  applyEngineUpdateBtn: document.getElementById('applyEngineUpdateBtn'),
+  engineStatusBadge: document.getElementById('engineStatusBadge'),
+  engineStatusDesc: document.getElementById('engineStatusDesc'),
+  checkEngineUpdatesBtn: document.getElementById('checkEngineUpdatesBtn'),
+  updateEngineCardBtn: document.getElementById('updateEngineCardBtn'),
+
   // Modals
   remoteModal: document.getElementById('remoteModal'),
   remoteUrlInput: document.getElementById('remoteUrlInput'),
   saveRemoteBtn: document.getElementById('saveRemoteBtn'),
   commitModal: document.getElementById('commitModal'),
   uploadModal: document.getElementById('uploadModal'),
+  diffModal: document.getElementById('diffModal'),
+  diffModalTitle: document.getElementById('diffModalTitle'),
+  diffContentContainer: document.getElementById('diffContentContainer'),
   fileViewerModal: document.getElementById('fileViewerModal'),
   viewerFileName: document.getElementById('viewerFileName'),
   viewerFileContent: document.getElementById('viewerFileContent'),
@@ -144,16 +175,81 @@ document.querySelectorAll('.bottom-nav .nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
 });
 
-// Modals
 function openModal(modal) { modal.classList.add('active'); }
 function closeModals() {
   document.querySelectorAll('.modal').forEach(m => {
-    if (m.id !== 'pinModal' || !state.pinRequired) m.classList.remove('active');
+    if (m.id !== 'pinModal' || !state.pinRequired || state.authPin) m.classList.remove('active');
   });
 }
 function openUploadModal() {
   elements.uploadFolderSelect.value = state.currentFolder || 'papers';
   openModal(elements.uploadModal);
+}
+
+// PIN Authentication
+function promptPinAuth(errorText = '') {
+  if (elements.pinModal) {
+    if (elements.pinErrorMsg) {
+      elements.pinErrorMsg.textContent = errorText;
+    }
+    if (elements.pinInput) {
+      elements.pinInput.value = '';
+    }
+    openModal(elements.pinModal);
+    setTimeout(() => {
+      if (elements.pinInput) elements.pinInput.focus();
+    }, 200);
+  }
+}
+
+async function verifyAndSavePin(pin) {
+  const cleanPin = (pin || '').trim();
+  if (!cleanPin) {
+    if (elements.pinErrorMsg) elements.pinErrorMsg.textContent = 'Please enter your PIN';
+    return false;
+  }
+
+  try {
+    const res = await fetch('/api/verify-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: cleanPin })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      state.authPin = cleanPin;
+      localStorage.setItem('gitmobile_pin', cleanPin);
+      elements.pinModal.classList.remove('active');
+      showToast('Unlocked successfully', 'success');
+      await loadRemoteInfo();
+      await loadRepoStatus();
+      await loadQuickPapers();
+      checkEngineUpdates(true);
+      return true;
+    } else {
+      if (elements.pinErrorMsg) {
+        elements.pinErrorMsg.textContent = data.error || 'Invalid PIN. Check terminal.';
+      }
+      return false;
+    }
+  } catch (err) {
+    if (elements.pinErrorMsg) elements.pinErrorMsg.textContent = err.message;
+    return false;
+  }
+}
+
+if (elements.submitPinBtn) {
+  elements.submitPinBtn.addEventListener('click', () => {
+    verifyAndSavePin(elements.pinInput ? elements.pinInput.value : '');
+  });
+}
+
+if (elements.pinInput) {
+  elements.pinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      verifyAndSavePin(elements.pinInput.value);
+    }
+  });
 }
 
 // Config & Remote
@@ -169,11 +265,70 @@ async function initApp() {
       await loadRemoteInfo();
       await loadRepoStatus();
       await loadQuickPapers();
+      checkEngineUpdates(true);
     }
   } catch (err) {
     logToConsole('Bridge initialization failed: ' + err.message, 'error');
   }
 }
+
+// Engine Upstream Updates
+async function checkEngineUpdates(quiet = false) {
+  try {
+    elements.engineStatusBadge.textContent = 'Checking...';
+    elements.engineStatusBadge.className = 'state-pill';
+    const res = await apiRequest('/api/engine/status');
+
+    if (res.updateAvailable) {
+      elements.engineUpdateBanner.style.display = 'flex';
+      elements.engineUpdateText.textContent = res.upstreamCommit ? `Update available: ${res.upstreamCommit}` : 'Engine update available';
+      elements.engineStatusBadge.textContent = 'Update Available';
+      elements.engineStatusBadge.className = 'state-pill dirty';
+      elements.updateEngineCardBtn.style.display = 'inline-block';
+      if (!quiet) showToast('New .gitmobile engine update available!', 'info');
+    } else {
+      elements.engineUpdateBanner.style.display = 'none';
+      elements.engineStatusBadge.textContent = 'Up to date';
+      elements.engineStatusBadge.className = 'state-pill clean';
+      elements.updateEngineCardBtn.style.display = 'none';
+      if (!quiet) showToast('.gitmobile is up to date with upstream.', 'success');
+    }
+  } catch (err) {
+    elements.engineStatusBadge.textContent = 'Check failed';
+    if (!quiet) showToast('Failed to check for updates: ' + err.message, 'error');
+  }
+}
+
+async function applyEngineUpdate() {
+  const confirmUpdate = confirm('Update .gitmobile core engine to the latest upstream version?\\n\\nYour personal notes, papers, and repository commits will remain completely safe.');
+  if (!confirmUpdate) return;
+
+  try {
+    elements.applyEngineUpdateBtn.disabled = true;
+    elements.applyEngineUpdateBtn.textContent = 'Updating...';
+    elements.updateEngineCardBtn.disabled = true;
+    elements.updateEngineCardBtn.textContent = 'Updating...';
+    logToConsole('Updating .gitmobile engine from upstream...', 'info');
+
+    const res = await apiRequest('/api/engine/update', { method: 'POST' });
+    if (res.success) {
+      showToast('Engine updated! Reloading in 2s...', 'success');
+      logToConsole('Engine update successful. Reloading client...', 'success');
+      setTimeout(() => window.location.reload(), 2000);
+    }
+  } catch (err) {
+    showToast('Engine update failed: ' + err.message, 'error');
+    logToConsole('Engine update error: ' + err.message, 'error');
+    elements.applyEngineUpdateBtn.disabled = false;
+    elements.applyEngineUpdateBtn.textContent = 'Update Engine';
+    elements.updateEngineCardBtn.disabled = false;
+    elements.updateEngineCardBtn.textContent = 'Update to Latest';
+  }
+}
+
+elements.checkEngineUpdatesBtn.addEventListener('click', () => checkEngineUpdates(false));
+elements.applyEngineUpdateBtn.addEventListener('click', applyEngineUpdate);
+elements.updateEngineCardBtn.addEventListener('click', applyEngineUpdate);
 
 async function loadRemoteInfo() {
   try {
@@ -237,12 +392,14 @@ async function loadRepoStatus() {
       elements.syncStatusBadge.className = 'state-pill clean';
       elements.changesBadge.textContent = 'Clean';
       elements.changesBadge.className = 'state-pill clean';
+      if (elements.viewAllDiffsBtn) elements.viewAllDiffsBtn.style.display = 'none';
     } else {
       const total = s.counts.modified + s.counts.staged + s.counts.untracked;
       elements.syncStatusBadge.textContent = `${total} Unsaved`;
       elements.syncStatusBadge.className = 'state-pill dirty';
       elements.changesBadge.textContent = `${total} changes`;
       elements.changesBadge.className = 'state-pill dirty';
+      if (elements.viewAllDiffsBtn) elements.viewAllDiffsBtn.style.display = 'inline-block';
     }
 
     elements.behindCount.textContent = s.behind;
@@ -266,24 +423,67 @@ function renderStatusList(files, isClean) {
 
   files.staged.forEach(f => {
     const row = document.createElement('div');
-    row.className = 'status-row';
+    row.className = 'status-row clickable';
+    row.title = 'Tap to view diff';
     row.innerHTML = `<span>${f.file}</span><span class="status-tag A">staged</span>`;
+    row.addEventListener('click', () => openDiffViewer(f.file));
     elements.statusListContainer.appendChild(row);
   });
 
   files.modified.forEach(f => {
     const row = document.createElement('div');
-    row.className = 'status-row';
+    row.className = 'status-row clickable';
+    row.title = 'Tap to view diff';
     row.innerHTML = `<span>${f.file}</span><span class="status-tag M">modified</span>`;
+    row.addEventListener('click', () => openDiffViewer(f.file));
     elements.statusListContainer.appendChild(row);
   });
 
   files.untracked.forEach(f => {
     const row = document.createElement('div');
-    row.className = 'status-row';
+    row.className = 'status-row clickable';
+    row.title = 'Tap to view diff';
     row.innerHTML = `<span>${f}</span><span class="status-tag U">untracked</span>`;
+    row.addEventListener('click', () => openDiffViewer(f));
     elements.statusListContainer.appendChild(row);
   });
+}
+
+async function openDiffViewer(filePath = '') {
+  elements.diffModalTitle.textContent = filePath ? `Diff: ${filePath}` : 'Working Tree Diff';
+  elements.diffContentContainer.innerHTML = '<div class="diff-empty">Loading diff...</div>';
+  openModal(elements.diffModal);
+
+  try {
+    const res = await apiRequest(`/api/diff?file=${encodeURIComponent(filePath)}`);
+    const rawDiff = res.diff || '';
+    if (!rawDiff.trim()) {
+      elements.diffContentContainer.innerHTML = '<div class="diff-empty">No differences found.</div>';
+      return;
+    }
+
+    elements.diffContentContainer.innerHTML = '';
+    const lines = rawDiff.split('\n');
+    for (const line of lines) {
+      const lineEl = document.createElement('div');
+      lineEl.className = 'diff-line';
+      if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff ') || line.startsWith('index ')) {
+        lineEl.classList.add('header');
+      } else if (line.startsWith('+')) {
+        lineEl.classList.add('add');
+      } else if (line.startsWith('-')) {
+        lineEl.classList.add('del');
+      } else if (line.startsWith('@@')) {
+        lineEl.classList.add('hunk');
+      } else {
+        lineEl.classList.add('ctx');
+      }
+      lineEl.textContent = line;
+      elements.diffContentContainer.appendChild(lineEl);
+    }
+  } catch (err) {
+    elements.diffContentContainer.innerHTML = `<div class="diff-empty" style="color:var(--danger-fg);">Failed to load diff: ${err.message}</div>`;
+  }
 }
 
 // Git Actions
