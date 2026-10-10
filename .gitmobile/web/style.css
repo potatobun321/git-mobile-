@@ -94,6 +94,172 @@ body {
   flex-direction: column;
 }
 
+.repo-selector-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.repo-selector-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s ease;
+}
+
+.repo-selector-btn:hover {
+  opacity: 0.85;
+}
+
+.dropdown-caret {
+  color: var(--fg-muted);
+  transition: transform 0.2s ease;
+}
+
+.repo-selector-wrap.active .dropdown-caret {
+  transform: rotate(180deg);
+}
+
+.repo-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 260px;
+  max-width: 340px;
+  background-color: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-default);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 250;
+  overflow: hidden;
+}
+
+.repo-selector-wrap.active .repo-dropdown-menu {
+  display: block;
+}
+
+.repo-dropdown-header {
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-muted);
+  background-color: var(--canvas-subtle);
+}
+
+.repo-dropdown-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.repo-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--fg-default);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.repo-dropdown-item:hover {
+  background-color: var(--canvas-subtle);
+}
+
+.repo-dropdown-item.active {
+  background-color: rgba(56, 139, 253, 0.12);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.repo-dropdown-item-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.repo-dropdown-item-name {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.repo-dropdown-item-path {
+  font-size: 0.68rem;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.repo-dropdown-divider {
+  height: 1px;
+  background-color: var(--border-muted);
+}
+
+.repo-dropdown-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: var(--accent-fg);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.repo-dropdown-action:hover {
+  background-color: var(--canvas-subtle);
+}
+
+/* Tab Pills in Modal */
+.tab-pills {
+  display: flex;
+  gap: 6px;
+  background-color: var(--canvas-inset);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+}
+
+.pill-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pill-btn.active {
+  background-color: var(--canvas-overlay);
+  color: var(--fg-default);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
 .repo-name-wrap {
   display: flex;
   align-items: center;

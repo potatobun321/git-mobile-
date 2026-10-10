@@ -20,10 +20,30 @@
     <div class="header-left">
       <img src="logo.png" alt=".gitmobile logo" class="app-logo">
       <div class="repo-info">
-        <div class="repo-name-wrap">
-          <span class="repo-owner" id="repoOwnerDisplay">local</span>
-          <span class="repo-slash">/</span>
-          <strong class="repo-name" id="repoNameDisplay">repository</strong>
+        <div class="repo-selector-wrap" id="repoSelectorWrap">
+          <button class="repo-selector-btn" id="repoSelectorBtn" title="Switch Repository">
+            <span class="repo-name-wrap">
+              <span class="repo-owner" id="repoOwnerDisplay">local</span>
+              <span class="repo-slash">/</span>
+              <strong class="repo-name" id="repoNameDisplay">repository</strong>
+            </span>
+            <svg class="octicon dropdown-caret" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
+            </svg>
+          </button>
+          
+          <!-- Dropdown Menu -->
+          <div class="repo-dropdown-menu" id="repoDropdownMenu">
+            <div class="repo-dropdown-header">Switch Repository</div>
+            <div class="repo-dropdown-list" id="repoDropdownList"></div>
+            <div class="repo-dropdown-divider"></div>
+            <button class="repo-dropdown-action" id="openAddRepoModalBtn">
+              <svg class="octicon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/>
+              </svg>
+              <span>Add / Clone Repository...</span>
+            </button>
+          </div>
         </div>
         <div class="repo-badges">
           <span class="branch-pill" id="branchBadge">
@@ -402,6 +422,49 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-subtle" onclick="closeModals()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / CLONE REPOSITORY -->
+  <div class="modal" id="addRepoModal">
+    <div class="modal-backdrop" onclick="closeModals()"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Add or Clone Repository</h3>
+        <button class="btn-close" onclick="closeModals()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tab-pills">
+          <button class="pill-btn active" id="tabCloneRemoteBtn">Clone from URL</button>
+          <button class="pill-btn" id="tabLinkLocalBtn">Link Local Folder</button>
+        </div>
+
+        <!-- Section 1: Clone Remote -->
+        <div id="addRepoCloneSection">
+          <label class="form-label" style="margin-top:12px;">Remote Git URL (SSH or HTTPS)</label>
+          <input type="text" id="cloneRepoUrlInput" class="input-mono" placeholder="git@github.com:potatobun321/my-repo.git">
+          <p class="form-hint">Uses your pre-seeded SSH authentication key.</p>
+
+          <label class="form-label" style="margin-top:10px;">Repository Name (Optional)</label>
+          <input type="text" id="cloneRepoNameInput" class="input-mono" placeholder="my-repo">
+        </div>
+
+        <!-- Section 2: Link Local Folder -->
+        <div id="addRepoLocalSection" style="display:none;">
+          <label class="form-label" style="margin-top:12px;">Local Repository Directory Path</label>
+          <input type="text" id="linkLocalPathInput" class="input-mono" placeholder="C:\Users\GIGA\Desktop\AnotherRepo">
+          <p class="form-hint">Folder must contain a valid .git directory.</p>
+
+          <label class="form-label" style="margin-top:10px;">Display Name (Optional)</label>
+          <input type="text" id="linkLocalNameInput" class="input-mono" placeholder="AnotherRepo">
+        </div>
+
+        <div id="addRepoErrorMsg" class="error-msg" style="margin-top:8px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-subtle" onclick="closeModals()">Cancel</button>
+        <button class="btn btn-primary" id="confirmAddRepoBtn">Clone Repository</button>
       </div>
     </div>
   </div>

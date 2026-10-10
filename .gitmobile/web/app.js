@@ -26,7 +26,10 @@ const state = {
   authPin: localStorage.getItem('gitmobile_pin') || '',
   pinRequired: false,
   status: null,
-  remoteUrl: ''
+  remoteUrl: '',
+  activeRepoId: 'default',
+  repositories: [],
+  addRepoTab: 'clone'
 };
 
 // DOM References
@@ -108,7 +111,25 @@ const elements = {
   pinModal: document.getElementById('pinModal'),
   pinInput: document.getElementById('pinInput'),
   submitPinBtn: document.getElementById('submitPinBtn'),
-  pinErrorMsg: document.getElementById('pinErrorMsg')
+  pinErrorMsg: document.getElementById('pinErrorMsg'),
+
+  // Multi-Repo Dropdown & Modal
+  repoSelectorWrap: document.getElementById('repoSelectorWrap'),
+  repoSelectorBtn: document.getElementById('repoSelectorBtn'),
+  repoDropdownMenu: document.getElementById('repoDropdownMenu'),
+  repoDropdownList: document.getElementById('repoDropdownList'),
+  openAddRepoModalBtn: document.getElementById('openAddRepoModalBtn'),
+  addRepoModal: document.getElementById('addRepoModal'),
+  tabCloneRemoteBtn: document.getElementById('tabCloneRemoteBtn'),
+  tabLinkLocalBtn: document.getElementById('tabLinkLocalBtn'),
+  addRepoCloneSection: document.getElementById('addRepoCloneSection'),
+  addRepoLocalSection: document.getElementById('addRepoLocalSection'),
+  cloneRepoUrlInput: document.getElementById('cloneRepoUrlInput'),
+  cloneRepoNameInput: document.getElementById('cloneRepoNameInput'),
+  linkLocalPathInput: document.getElementById('linkLocalPathInput'),
+  linkLocalNameInput: document.getElementById('linkLocalNameInput'),
+  addRepoErrorMsg: document.getElementById('addRepoErrorMsg'),
+  confirmAddRepoBtn: document.getElementById('confirmAddRepoBtn')
 };
 
 // Utilities
@@ -257,11 +278,13 @@ async function initApp() {
   try {
     const info = await (await fetch('/api/config-info')).json();
     state.pinRequired = info.pinRequired;
+    state.activeRepoId = info.repoId || 'default';
     elements.repoNameDisplay.textContent = info.repoName || 'repository';
 
     if (info.pinRequired && !state.authPin) {
       promptPinAuth();
     } else {
+      await loadRepositories();
       await loadRemoteInfo();
       await loadRepoStatus();
       await loadQuickPapers();
@@ -269,6 +292,258 @@ async function initApp() {
     }
   } catch (err) {
     logToConsole('Bridge initialization failed: ' + err.message, 'error');
+  }
+}
+
+// Multi-Repository Management
+async function loadRepositories() {
+  try {
+    const res = await apiRequest('/api/repos');
+    if (!res.success) return;
+
+    state.repositories = res.repositories || [];
+    state.activeRepoId = res.activeRepoId || 'default';
+
+    const activeRepo = state.repositories.find(r => r.id === state.activeRepoId) || state.repositories[0];
+    if (activeRepo) {
+      elements.repoNameDisplay.textContent = activeRepo.name;
+    }
+
+    renderReposDropdown();
+  } catch (_) {}
+}
+
+function renderReposDropdown() {
+  if (!elements.repoDropdownList) return;
+  elements.repoDropdownList.innerHTML = '';
+
+  state.repositories.forEach(repo => {
+    const item = document.createElement('div');
+    item.className = `repo-dropdown-item ${repo.id === state.activeRepoId ? 'active' : ''}`;
+
+    const info = document.createElement('div');
+    info.className = 'repo-dropdown-item-info';
+    info.innerHTML = `
+      <span class="repo-dropdown-item-name">${repo.name}</span>
+      <span class="repo-dropdown-item-path">${repo.path}</span>
+    `;
+
+    const meta = document.createElement('div');
+    meta.style.display = 'flex';
+    meta.style.alignItems = 'center';
+    meta.style.gap = '6px';
+
+    const badge = document.createElement('span');
+    badge.className = `state-pill ${repo.isClean ? 'clean' : 'dirty'}`;
+    badge.textContent = repo.isClean ? 'Clean' : 'Modified';
+    meta.appendChild(badge);
+
+    if (!repo.isPrimary) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-icon';
+      delBtn.title = 'Unregister repository';
+      delBtn.style.padding = '2px 4px';
+      delBtn.style.fontSize = '12px';
+      delBtn.innerHTML = '&times;';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeRepository(repo.id, repo.name);
+      });
+      meta.appendChild(delBtn);
+    }
+
+    item.appendChild(info);
+    item.appendChild(meta);
+
+    item.addEventListener('click', () => {
+      if (repo.id !== state.activeRepoId) {
+        switchRepository(repo.id);
+      } else {
+        closeRepoDropdown();
+      }
+    });
+
+    elements.repoDropdownList.appendChild(item);
+  });
+}
+
+function toggleRepoDropdown() {
+  if (elements.repoSelectorWrap) {
+    elements.repoSelectorWrap.classList.toggle('active');
+  }
+}
+
+function closeRepoDropdown() {
+  if (elements.repoSelectorWrap) {
+    elements.repoSelectorWrap.classList.remove('active');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (elements.repoSelectorWrap && !elements.repoSelectorWrap.contains(e.target)) {
+    closeRepoDropdown();
+  }
+});
+
+if (elements.repoSelectorBtn) {
+  elements.repoSelectorBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleRepoDropdown();
+  });
+}
+
+if (elements.openAddRepoModalBtn) {
+  elements.openAddRepoModalBtn.addEventListener('click', () => {
+    closeRepoDropdown();
+    switchAddRepoTab('clone');
+    openModal(elements.addRepoModal);
+  });
+}
+
+async function switchRepository(repoId) {
+  try {
+    closeRepoDropdown();
+    const res = await apiRequest('/api/repos/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoId })
+    });
+
+    if (res.success) {
+      state.activeRepoId = repoId;
+      showToast(`Switched to ${res.activeRepo.name}`, 'info');
+      logToConsole(`Switched active repository to: ${res.activeRepo.name}`, 'info');
+      await loadRepositories();
+      await loadRemoteInfo();
+      await loadRepoStatus();
+      await loadQuickPapers();
+      if (state.currentTab === 'files') loadFiles('');
+      if (state.currentTab === 'history') loadHistory();
+    }
+  } catch (err) {
+    showToast('Failed to switch repository: ' + err.message, 'error');
+  }
+}
+
+async function removeRepository(repoId, repoName) {
+  if (!confirm(`Unregister ${repoName} from GitMobile?\n(Files on disk will NOT be deleted)`)) return;
+  try {
+    const res = await apiRequest(`/api/repos/${encodeURIComponent(repoId)}`, { method: 'DELETE' });
+    if (res.success) {
+      showToast(`Unregistered ${repoName}`, 'info');
+      await loadRepositories();
+      if (state.activeRepoId === repoId) {
+        switchRepository(res.activeRepoId || 'default');
+      }
+    }
+  } catch (err) {
+    showToast('Failed to unregister repository: ' + err.message, 'error');
+  }
+}
+
+function switchAddRepoTab(tab) {
+  state.addRepoTab = tab;
+  if (!elements.tabCloneRemoteBtn) return;
+
+  if (tab === 'clone') {
+    elements.tabCloneRemoteBtn.classList.add('active');
+    elements.tabLinkLocalBtn.classList.remove('active');
+    elements.addRepoCloneSection.style.display = 'block';
+    elements.addRepoLocalSection.style.display = 'none';
+    elements.confirmAddRepoBtn.textContent = 'Clone Repository';
+  } else {
+    elements.tabCloneRemoteBtn.classList.remove('active');
+    elements.tabLinkLocalBtn.classList.add('active');
+    elements.addRepoCloneSection.style.display = 'none';
+    elements.addRepoLocalSection.style.display = 'block';
+    elements.confirmAddRepoBtn.textContent = 'Link Repository';
+  }
+  if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = '';
+}
+
+if (elements.tabCloneRemoteBtn) {
+  elements.tabCloneRemoteBtn.addEventListener('click', () => switchAddRepoTab('clone'));
+}
+if (elements.tabLinkLocalBtn) {
+  elements.tabLinkLocalBtn.addEventListener('click', () => switchAddRepoTab('local'));
+}
+
+if (elements.confirmAddRepoBtn) {
+  elements.confirmAddRepoBtn.addEventListener('click', handleAddRepo);
+}
+
+async function handleAddRepo() {
+  if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = '';
+  if (state.addRepoTab === 'clone') {
+    const url = elements.cloneRepoUrlInput.value.trim();
+    const name = elements.cloneRepoNameInput.value.trim();
+    if (!url) {
+      if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = 'Please enter a Git repository URL';
+      return;
+    }
+
+    try {
+      elements.confirmAddRepoBtn.disabled = true;
+      elements.confirmAddRepoBtn.textContent = 'Cloning...';
+      logToConsole(`Cloning remote repository: ${url}...`, 'info');
+
+      const res = await apiRequest('/api/repos/clone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, name })
+      });
+
+      if (res.success) {
+        showToast(`Cloned & added ${res.repository.name}`, 'success');
+        logToConsole(`Repository cloned successfully to ${res.repository.path}`, 'success');
+        closeModals();
+        elements.cloneRepoUrlInput.value = '';
+        elements.cloneRepoNameInput.value = '';
+        await loadRepositories();
+        await loadRemoteInfo();
+        await loadRepoStatus();
+        await loadQuickPapers();
+      }
+    } catch (err) {
+      if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = err.message;
+    } finally {
+      elements.confirmAddRepoBtn.disabled = false;
+      elements.confirmAddRepoBtn.textContent = 'Clone Repository';
+    }
+  } else {
+    const localPath = elements.linkLocalPathInput.value.trim();
+    const name = elements.linkLocalNameInput.value.trim();
+    if (!localPath) {
+      if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = 'Please enter a local directory path';
+      return;
+    }
+
+    try {
+      elements.confirmAddRepoBtn.disabled = true;
+      elements.confirmAddRepoBtn.textContent = 'Linking...';
+
+      const res = await apiRequest('/api/repos/add-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ localPath, name })
+      });
+
+      if (res.success) {
+        showToast(`Linked ${res.repository.name}`, 'success');
+        closeModals();
+        elements.linkLocalPathInput.value = '';
+        elements.linkLocalNameInput.value = '';
+        await loadRepositories();
+        await loadRemoteInfo();
+        await loadRepoStatus();
+        await loadQuickPapers();
+      }
+    } catch (err) {
+      if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = err.message;
+    } finally {
+      elements.confirmAddRepoBtn.disabled = false;
+      elements.confirmAddRepoBtn.textContent = 'Link Repository';
+    }
   }
 }
 

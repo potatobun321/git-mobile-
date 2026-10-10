@@ -508,6 +508,18 @@ async function applyEngineUpdate(repoPath) {
   };
 }
 
+/**
+ * Clone a remote repository to target directory
+ */
+async function cloneRepository(targetDir, gitUrl) {
+  const parent = path.dirname(targetDir);
+  if (!fs.existsSync(parent)) {
+    fs.mkdirSync(parent, { recursive: true });
+  }
+  const args = ['clone', gitUrl, targetDir];
+  return await runGit(parent, args);
+}
+
 module.exports = {
   runGit,
   getRepoStatus,
@@ -525,5 +537,6 @@ module.exports = {
   getFileDiff,
   ensureUpstreamRemote,
   checkEngineUpdates,
-  applyEngineUpdate
+  applyEngineUpdate,
+  cloneRepository
 };

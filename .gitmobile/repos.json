@@ -1,0 +1,11 @@
+{
+  "activeRepoId": "default",
+  "repositories": [
+    {
+      "id": "default",
+      "name": "GitMobile",
+      "path": "C:\\Users\\GIGA\\Desktop\\GitMobile",
+      "isPrimary": true
+    }
+  ]
+}
