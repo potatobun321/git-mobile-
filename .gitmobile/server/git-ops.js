@@ -136,9 +136,30 @@ async function getRepoStatus(repoPath) {
 }
 
 /**
+ * Inject authentication token into repository remote URL if HTTPS
+ */
+async function injectTokenIntoRemote(repoPath, token) {
+  if (!token || !token.trim() || !repoPath) return;
+  try {
+    const rawRes = await runGit(repoPath, ['remote', 'get-url', 'origin']);
+    const rawUrl = rawRes.stdout.trim();
+    if (rawUrl.startsWith('https://')) {
+      const cleanUrl = rawUrl.replace(/https:\/\/[^@]+@/, 'https://');
+      const authedUrl = cleanUrl.replace(/^https:\/\//, `https://${encodeURIComponent(token.trim())}@`);
+      if (rawUrl !== authedUrl) {
+        await runGit(repoPath, ['remote', 'set-url', 'origin', authedUrl]);
+      }
+    }
+  } catch (_) {}
+}
+
+/**
  * Pull latest changes from remote
  */
-async function pullRepo(repoPath) {
+async function pullRepo(repoPath, token) {
+  if (token) {
+    await injectTokenIntoRemote(repoPath, token);
+  }
   return await runGit(repoPath, ['pull']);
 }
 
@@ -232,7 +253,10 @@ async function commitRepo(repoPath, message, files = []) {
 /**
  * Push commits to remote (automatically sets upstream on first push)
  */
-async function pushRepo(repoPath) {
+async function pushRepo(repoPath, token) {
+  if (token) {
+    await injectTokenIntoRemote(repoPath, token);
+  }
   let branch = 'master';
   try {
     const b = await runGit(repoPath, ['branch', '--show-current']);
@@ -253,7 +277,10 @@ async function pushRepo(repoPath) {
 /**
  * Sync workflow: Pull -> Auto-commit changes if any -> Push
  */
-async function syncWorkflow(repoPath, customMessage) {
+async function syncWorkflow(repoPath, customMessage, token) {
+  if (token) {
+    await injectTokenIntoRemote(repoPath, token);
+  }
   const logs = [];
   
   // 1. Try Pull if remote is configured
@@ -670,6 +697,7 @@ module.exports = {
   getRemoteUrl,
   setRemoteUrl,
   sanitizeRemoteUrl,
+  injectTokenIntoRemote,
   executeCustomGit,
   getFileDiff,
   ensureUpstreamRemote,

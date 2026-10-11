@@ -381,10 +381,10 @@ app.get('/api/status', async (req, res) => {
 app.post('/api/pull', async (req, res) => {
   try {
     const activeRepo = getActiveRepo(req);
-    const result = await gitOps.pullRepo(activeRepo.path);
+    const result = await gitOps.pullRepo(activeRepo.path, config.githubToken);
     res.json({ success: true, result });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.stderr || err.message || err });
+    res.status(500).json({ success: false, error: err.message || err.stderr || err });
   }
 });
 
@@ -392,10 +392,10 @@ app.post('/api/pull', async (req, res) => {
 app.post('/api/push', async (req, res) => {
   try {
     const activeRepo = getActiveRepo(req);
-    const result = await gitOps.pushRepo(activeRepo.path);
+    const result = await gitOps.pushRepo(activeRepo.path, config.githubToken);
     res.json({ success: true, result });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.stderr || err.message || err });
+    res.status(500).json({ success: false, error: err.message || err.stderr || err });
   }
 });
 
@@ -407,7 +407,7 @@ app.post('/api/commit', async (req, res) => {
     const result = await gitOps.commitRepo(activeRepo.path, message, files);
     res.json({ success: true, result });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.stderr || err.message || err });
+    res.status(500).json({ success: false, error: err.message || err.stderr || err });
   }
 });
 
@@ -416,7 +416,7 @@ app.post('/api/sync', async (req, res) => {
   try {
     const activeRepo = getActiveRepo(req);
     const { message } = req.body;
-    const result = await gitOps.syncWorkflow(activeRepo.path, message);
+    const result = await gitOps.syncWorkflow(activeRepo.path, message, config.githubToken);
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message || err });
@@ -480,13 +480,17 @@ app.get('/api/credentials', (req, res) => {
 });
 
 // API: Save or Clear GitHub Token
-app.post('/api/credentials', (req, res) => {
+app.post('/api/credentials', async (req, res) => {
   try {
     const { token, clear } = req.body;
     if (clear) {
       delete config.githubToken;
     } else if (token && token.trim()) {
       config.githubToken = token.trim();
+      try {
+        const activeRepo = getActiveRepo(req);
+        await gitOps.injectTokenIntoRemote(activeRepo.path, config.githubToken);
+      } catch (_) {}
     } else {
       return res.status(400).json({ success: false, error: 'Token string is required' });
     }

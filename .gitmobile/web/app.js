@@ -935,6 +935,19 @@ async function openDiffViewer(filePath = '') {
   }
 }
 
+function checkAndHandleAuthError(err) {
+  const msg = (err && (err.message || err.error || '')) + '';
+  if (msg.includes('Authentication required') || msg.includes('could not read Username') || msg.includes('terminal prompts disabled') || msg.includes('Permission denied')) {
+    openModal(elements.credentialsModal);
+    showToast('Auth Required: Save your GitHub Token to push/sync', 'warning');
+    if (elements.credentialsStatusMsg) {
+      elements.credentialsStatusMsg.textContent = 'Enter your Personal Access Token (PAT) below to authenticate this repository.';
+    }
+    return true;
+  }
+  return false;
+}
+
 // Git Actions
 elements.quickSyncBtn.addEventListener('click', async () => {
   try {
@@ -953,7 +966,9 @@ elements.quickSyncBtn.addEventListener('click', async () => {
     loadRepoStatus();
     loadQuickPapers();
   } catch (err) {
-    showToast('Sync error: ' + err.message, 'error');
+    if (!checkAndHandleAuthError(err)) {
+      showToast('Sync error: ' + err.message, 'error');
+    }
   } finally {
     elements.quickSyncBtn.disabled = false;
     elements.quickSyncBtn.textContent = 'Sync Repository';
@@ -969,7 +984,9 @@ elements.pullBtn.addEventListener('click', async () => {
     showToast('Pull complete', 'success');
     loadRepoStatus();
   } catch (err) {
-    showToast('Pull failed: ' + err.message, 'error');
+    if (!checkAndHandleAuthError(err)) {
+      showToast('Pull failed: ' + err.message, 'error');
+    }
   }
 });
 
@@ -982,7 +999,9 @@ elements.pushBtn.addEventListener('click', async () => {
     showToast('Push complete', 'success');
     loadRepoStatus();
   } catch (err) {
-    showToast('Push failed: ' + err.message, 'error');
+    if (!checkAndHandleAuthError(err)) {
+      showToast('Push failed: ' + err.message, 'error');
+    }
   }
 });
 
