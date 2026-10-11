@@ -402,6 +402,8 @@ function writeSafeFile(repoPath, relFilePath, content) {
 }
 
 /**
+ * Sanitize remote URL to strip embedded auth tokens
+ */
 function sanitizeRemoteUrl(url) {
   if (!url) return '';
   return url.replace(/https:\/\/[^@]+@/, 'https://').trim();
@@ -528,16 +530,35 @@ async function ensureUpstreamRemote(repoPath, upstreamUrl = UPSTREAM_URL) {
 async function checkEngineUpdates(repoPath) {
   await ensureUpstreamRemote(repoPath);
   try {
-    await runGit(repoPath, ['fetch', 'upstream', 'master', '--depth=1']);
+    // Fetch upstream master (normal fetch avoids shallow disjoint graph issues)
+    try {
+      await runGit(repoPath, ['fetch', 'upstream', 'master']);
+    } catch (_) {
+      await runGit(repoPath, ['fetch', 'upstream', 'master', '--depth=1']);
+    }
 
-    const diffRes = await runGit(repoPath, [
-      'diff',
-      'HEAD...upstream/master',
-      '--',
-      '.gitmobile',
-      'startup.bat',
-      'startup.sh'
-    ]);
+    // Direct tree comparison (HEAD vs upstream/master) does NOT require a merge-base
+    let diffRes;
+    try {
+      diffRes = await runGit(repoPath, [
+        'diff',
+        'HEAD',
+        'upstream/master',
+        '--',
+        '.gitmobile',
+        'startup.bat',
+        'startup.sh'
+      ]);
+    } catch (_) {
+      diffRes = await runGit(repoPath, [
+        'diff',
+        'HEAD..upstream/master',
+        '--',
+        '.gitmobile',
+        'startup.bat',
+        'startup.sh'
+      ]);
+    }
 
     const hasUpdates = Boolean(diffRes.stdout && diffRes.stdout.trim().length > 0);
 
@@ -547,9 +568,9 @@ async function checkEngineUpdates(repoPath) {
       upstreamCommit = commitRes.stdout.trim();
     } catch (_) {}
 
-    let currentVersion = '2.0.0';
+    let currentVersion = '2.1.0';
     try {
-      currentVersion = require('../package.json').version || '2.0.0';
+      currentVersion = require('../package.json').version || '2.1.0';
     } catch (_) {}
 
     return {
