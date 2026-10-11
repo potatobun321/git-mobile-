@@ -220,11 +220,19 @@ document.querySelectorAll('.bottom-nav .nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
 });
 
-function openModal(modal) { modal.classList.add('active'); }
+function openModal(modal) {
+  if (!modal) return;
+  modal.classList.add('active');
+  document.body.classList.add('modal-open');
+}
 function closeModals() {
   document.querySelectorAll('.modal').forEach(m => {
     if (m.id !== 'pinModal' || !state.pinRequired || state.authPin) m.classList.remove('active');
   });
+  const anyActive = document.querySelector('.modal.active');
+  if (!anyActive) {
+    document.body.classList.remove('modal-open');
+  }
 }
 function openUploadModal() {
   elements.uploadFolderSelect.value = state.currentFolder || 'papers';
@@ -426,6 +434,16 @@ if (elements.openAddRepoModalBtn) {
   });
 }
 
+const headerAddRepoBtn = document.getElementById('headerAddRepoBtn');
+if (headerAddRepoBtn) {
+  headerAddRepoBtn.addEventListener('click', () => {
+    closeRepoDropdown();
+    switchAddRepoTab('clone');
+    loadCredentialsInfo();
+    openModal(elements.addRepoModal);
+  });
+}
+
 async function switchRepository(repoId) {
   try {
     closeRepoDropdown();
@@ -587,7 +605,7 @@ async function checkEngineUpdates(quiet = false) {
     elements.engineStatusBadge.textContent = 'Checking...';
     elements.engineStatusBadge.className = 'state-pill';
     const res = await apiRequest('/api/engine/status');
-    const ver = res.currentVersion ? `v${res.currentVersion}` : 'v2.1.1';
+    const ver = res.currentVersion ? `v${res.currentVersion}` : 'v2.1.2';
 
     if (elements.engineStatusDesc) {
       elements.engineStatusDesc.textContent = `Version ${ver} • Upstream: potatobun321/git-mobile- • Latest: ${res.upstreamCommit || 'master'}`;

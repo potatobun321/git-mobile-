@@ -904,7 +904,7 @@ body {
   justify-content: space-around;
   padding-top: 5px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  z-index: 500;
+  z-index: 100;
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -1056,9 +1056,11 @@ svg.octicon,
   display: none;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 300;
-  align-items: flex-end;
+  z-index: 1200;
+  align-items: center;
   justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
 }
 
 .modal.active {
@@ -1066,23 +1068,36 @@ svg.octicon,
 }
 
 .modal-backdrop {
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(1, 4, 9, 0.75);
+  background-color: rgba(1, 4, 9, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1;
 }
 
 .modal-dialog {
   background-color: var(--canvas-subtle);
   border: 1px solid var(--border-default);
-  border-bottom: none;
-  border-radius: var(--radius-default) var(--radius-default) 0 0;
+  border-radius: var(--radius-default);
   width: 100%;
-  max-width: 560px;
-  max-height: 85vh;
+  max-width: 520px;
+  max-height: calc(100dvh - 36px);
   overflow-y: auto;
   position: relative;
-  z-index: 10;
-  padding: 16px;
+  z-index: 2;
+  padding: 18px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  box-sizing: border-box;
+  margin: auto;
+}
+
+body.modal-open {
+  overflow: hidden !important;
+}
+
+body.modal-open .bottom-nav {
+  pointer-events: none !important;
 }
 
 .modal-header {
@@ -1104,6 +1119,13 @@ svg.octicon,
   font-size: 1.4rem;
   cursor: pointer;
   line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+}
+
+.btn-close:hover {
+  color: var(--fg-default);
 }
 
 .modal-footer {
@@ -1111,7 +1133,9 @@ svg.octicon,
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-muted);
 }
 
 .file-preview-pre {
@@ -1136,7 +1160,7 @@ svg.octicon,
   display: flex;
   flex-direction: column;
   gap: 6px;
-  z-index: 400;
+  z-index: 1500;
   pointer-events: none;
 }
 

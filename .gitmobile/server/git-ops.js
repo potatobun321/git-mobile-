@@ -595,9 +595,9 @@ async function checkEngineUpdates(repoPath) {
       upstreamCommit = commitRes.stdout.trim();
     } catch (_) {}
 
-    let currentVersion = '2.1.1';
+    let currentVersion = '2.1.2';
     try {
-      currentVersion = require('../package.json').version || '2.1.1';
+      currentVersion = require('../package.json').version || '2.1.2';
     } catch (_) {}
 
     return {

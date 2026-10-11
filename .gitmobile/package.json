@@ -1,6 +1,6 @@
 {
   "name": "gitmobile",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "type": "commonjs",
   "description": "Drop-in Mobile Git Control Center & Termux SSH Bridge",
   "main": "server/index.js",
