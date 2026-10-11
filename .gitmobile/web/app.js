@@ -723,6 +723,11 @@ if (elements.saveGitUserBtn) {
     } catch (err) {
       showToast('Failed to save identity: ' + err.message, 'error');
     } finally {
+      if (elements.saveGitUserBtn) elements.saveGitUserBtn.disabled = false;
+    }
+  });
+}
+
 // GitHub Credentials & Token Management
 async function loadCredentialsInfo() {
   try {
