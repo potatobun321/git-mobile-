@@ -5,20 +5,35 @@ const fs = require('fs');
 /**
  * Execute a git command inside the target repo directory
  */
-function runGit(repoPath, args) {
+function runGit(repoPath, args, customEnv = {}) {
   return new Promise((resolve, reject) => {
     const env = {
       ...process.env,
       GIT_TERMINAL_PROMPT: '0',
-      GIT_SSH_COMMAND: 'ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new'
+      GIT_SSH_COMMAND: 'ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new',
+      ...customEnv
     };
     execFile('git', args, { cwd: repoPath, env, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
+        const outStr = (stdout || '').trim();
+        const errStr = (stderr || '').trim();
+        let friendlyMessage = errStr || error.message;
+
+        const isAuthError = errStr.includes('terminal prompts disabled') ||
+                            errStr.includes('could not read Username') ||
+                            errStr.includes('Authentication failed') ||
+                            errStr.includes('Permission denied (publickey)') ||
+                            errStr.includes('Repository not found');
+        if (isAuthError) {
+          friendlyMessage = 'Authentication required. This repository appears to be private or requires credentials. Please enter a Personal Access Token (PAT).';
+        }
+
         return reject({
           code: error.code,
-          message: error.message,
-          stdout: (stdout || '').trim(),
-          stderr: (stderr || '').trim()
+          message: friendlyMessage,
+          isAuthError,
+          stdout: outStr,
+          stderr: errStr
         });
       }
       resolve({
@@ -50,7 +65,7 @@ async function getRepoStatus(repoPath) {
   let remoteUrl = '';
   try {
     const remoteRes = await runGit(repoPath, ['config', '--get', 'remote.origin.url']);
-    remoteUrl = remoteRes.stdout;
+    remoteUrl = sanitizeRemoteUrl(remoteRes.stdout);
   } catch (_) {}
 
   // 3. Ahead / Behind counts
@@ -387,22 +402,31 @@ function writeSafeFile(repoPath, relFilePath, content) {
 }
 
 /**
+function sanitizeRemoteUrl(url) {
+  if (!url) return '';
+  return url.replace(/https:\/\/[^@]+@/, 'https://').trim();
+}
+
+/**
  * Get or set remote origin URL
  */
 async function getRemoteUrl(repoPath) {
   try {
     const res = await runGit(repoPath, ['remote', 'get-url', 'origin']);
-    return res.stdout.trim();
+    return sanitizeRemoteUrl(res.stdout.trim());
   } catch (_) {
     return '';
   }
 }
 
-async function setRemoteUrl(repoPath, url) {
+async function setRemoteUrl(repoPath, url, token) {
   if (!url || !url.trim()) {
     throw new Error('Remote URL is required');
   }
-  const cleanUrl = url.trim();
+  let cleanUrl = url.trim();
+  if (token && cleanUrl.startsWith('https://') && !cleanUrl.includes('@')) {
+    cleanUrl = cleanUrl.replace(/^https:\/\//, `https://${encodeURIComponent(token.trim())}@`);
+  }
   try {
     await runGit(repoPath, ['remote', 'get-url', 'origin']);
     // Origin exists, update it
@@ -587,13 +611,28 @@ async function applyEngineUpdate(repoPath) {
 /**
  * Clone a remote repository to target directory
  */
-async function cloneRepository(targetDir, gitUrl) {
+async function cloneRepository(targetDir, gitUrl, token) {
   const parent = path.dirname(targetDir);
   if (!fs.existsSync(parent)) {
     fs.mkdirSync(parent, { recursive: true });
   }
-  const args = ['clone', gitUrl, targetDir];
-  return await runGit(parent, args);
+
+  let finalUrl = (gitUrl || '').trim();
+  if (token && finalUrl.startsWith('https://') && !finalUrl.includes('@')) {
+    finalUrl = finalUrl.replace(/^https:\/\//, `https://${encodeURIComponent(token.trim())}@`);
+  }
+
+  const args = ['clone', finalUrl, targetDir];
+  const res = await runGit(parent, args);
+
+  // If token was used, ensure origin URL in cloned repo maintains it for future pull/push
+  if (token && fs.existsSync(targetDir)) {
+    try {
+      await runGit(targetDir, ['config', 'remote.origin.url', finalUrl]);
+    } catch (_) {}
+  }
+
+  return res;
 }
 
 module.exports = {
@@ -609,6 +648,7 @@ module.exports = {
   writeSafeFile,
   getRemoteUrl,
   setRemoteUrl,
+  sanitizeRemoteUrl,
   executeCustomGit,
   getFileDiff,
   ensureUpstreamRemote,

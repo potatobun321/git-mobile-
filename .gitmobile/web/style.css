@@ -867,12 +867,39 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   height: 100%;
+  padding: 4px 2px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  transition: color 0.15s ease;
+}
+
+.nav-item svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+  fill: currentColor;
+  pointer-events: none;
+  transition: transform 0.15s ease, fill 0.15s ease;
+}
+
+.nav-item span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 .nav-item.active {
@@ -880,7 +907,79 @@ body {
 }
 
 .nav-item.active svg {
-  fill: var(--fg-default);
+  fill: var(--accent-fg);
+}
+
+.nav-item:active svg {
+  transform: scale(0.9);
+}
+
+/* ==========================================================================
+   Files Toolbar, Breadcrumbs & Octicons
+   ========================================================================== */
+svg.octicon,
+.octicon {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.breadcrumbs-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-default);
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  overflow-x: auto;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.breadcrumbs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.crumb {
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
+.crumb:hover {
+  color: var(--accent-fg);
+  background-color: var(--canvas-default);
+}
+
+.crumb.active {
+  color: var(--fg-default);
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.05);
+  cursor: default;
+}
+
+.files-toolbar .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* ==========================================================================

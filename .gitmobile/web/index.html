@@ -74,6 +74,7 @@
     <div style="display:flex;gap:6px;">
       <button class="btn btn-sm btn-subtle" id="openRemoteModalBtn">Remote</button>
       <button class="btn btn-sm btn-subtle" id="openGitUserModalBtn" title="Git Author Identity">Identity</button>
+      <button class="btn btn-sm btn-subtle" id="openCredentialsModalBtn" title="GitHub Credentials & Token">Auth</button>
     </div>
   </div>
 
@@ -179,9 +180,18 @@
         <div class="breadcrumbs-bar" id="fileBreadcrumbs">
           <span class="crumb active" onclick="navigateToFolder('')">root</span>
         </div>
-        <button class="btn btn-sm btn-primary" onclick="openUploadModal()">Upload File</button>
+        <button class="btn btn-sm btn-primary" onclick="openUploadModal()">
+          <svg class="octicon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/>
+          </svg>
+          Upload File
+        </button>
       </div>
       <div class="block-card">
+        <div class="block-header">
+          <span class="block-title" id="fileViewFolderTitle">Repository Tree</span>
+          <span class="label-mono" id="fileCountBadge">root</span>
+        </div>
         <div class="table-list" id="fileListContainer">
           <div class="empty-state">Loading repository tree...</div>
         </div>
@@ -468,12 +478,28 @@
 
         <!-- Section 1: Clone Remote -->
         <div id="addRepoCloneSection">
-          <label class="form-label" style="margin-top:12px;">Remote Git URL (SSH or HTTPS)</label>
-          <input type="text" id="cloneRepoUrlInput" class="input-mono" placeholder="git@github.com:potatobun321/my-repo.git">
-          <p class="form-hint">Uses your pre-seeded SSH authentication key.</p>
+          <label class="form-label" style="margin-top:12px;">Remote Git URL (HTTPS or SSH)</label>
+          <input type="text" id="cloneRepoUrlInput" class="input-mono" placeholder="https://github.com/potatobun321/my-repo.git">
+          <p class="form-hint">Supports HTTPS and SSH (e.g. git@github.com:...)</p>
 
           <label class="form-label" style="margin-top:10px;">Repository Name (Optional)</label>
           <input type="text" id="cloneRepoNameInput" class="input-mono" placeholder="my-repo">
+
+          <!-- Private Repo Authentication Options -->
+          <div style="margin-top:12px; padding:10px 12px; background:var(--canvas-subtle); border:1px solid var(--border-default); border-radius:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label class="form-label" style="margin:0; font-weight:600;">Private Repo Authentication</label>
+              <span id="savedTokenStatusBadge" class="label-mono" style="font-size:0.7rem; color:var(--success-fg); display:none;">Saved Token Active</span>
+            </div>
+            <div style="margin-top:8px;">
+              <input type="password" id="cloneRepoTokenInput" class="input-mono" placeholder="Personal Access Token (ghp_...)" autocomplete="off">
+              <p class="form-hint" style="margin-top:4px;">Required for private repos. If a token was saved earlier, leave blank to reuse.</p>
+            </div>
+            <label class="checkbox-label" style="margin-top:8px;">
+              <input type="checkbox" id="rememberTokenCheckbox" checked>
+              <span>Save token for future private repos & syncs</span>
+            </label>
+          </div>
         </div>
 
         <!-- Section 2: Link Local Folder -->
@@ -509,6 +535,40 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary btn-block" id="submitPinBtn">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GITHUB CREDENTIALS & TOKEN -->
+  <div class="modal" id="credentialsModal">
+    <div class="modal-backdrop" onclick="closeModals()"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>GitHub Authentication</h3>
+        <button class="btn-close" onclick="closeModals()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">GitHub Personal Access Token (PAT)</label>
+        <input type="password" id="globalGithubTokenInput" class="input-mono" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+        <p class="form-hint">Stored securely on your device. Enables 1-click cloning and syncing of private GitHub repositories.</p>
+
+        <div id="credentialsTokenActiveAlert" style="margin-top:10px; display:none; padding:8px 10px; background:rgba(46,160,67,0.15); border:1px solid rgba(46,160,67,0.4); border-radius:6px; font-size:0.8rem; color:var(--fg-default);">
+          <span>✓ A saved token is active (<span id="tokenPreviewSpan" class="label-mono"></span>)</span>
+        </div>
+
+        <label class="form-label" style="margin-top:14px;">SSH Public Key (Alternative for Termux)</label>
+        <div style="position:relative;">
+          <textarea id="sshPublicKeyArea" class="input-mono" rows="3" readonly style="width:100%; font-size:0.72rem; resize:none;" placeholder="No SSH key found."></textarea>
+        </div>
+        <button class="btn btn-sm btn-subtle" id="copySshKeyBtn" style="margin-top:6px;">Copy SSH Key</button>
+        <p class="form-hint">Add this key to GitHub → Settings → SSH Keys to clone via SSH (git@github.com:...).</p>
+
+        <div id="credentialsStatusMsg" class="error-msg" style="margin-top:8px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-subtle" onclick="closeModals()">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="clearTokenBtn" style="display:none;">Clear Token</button>
+        <button class="btn btn-primary" id="saveCredentialsBtn">Save Token</button>
       </div>
     </div>
   </div>

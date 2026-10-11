@@ -241,12 +241,22 @@ app.post('/api/repos/select', (req, res) => {
 // API: Clone New Repository from Remote URL
 app.post('/api/repos/clone', async (req, res) => {
   try {
-    const { url, name, customPath } = req.body;
+    const { url, name, customPath, token, rememberToken } = req.body;
     if (!url || !url.trim()) {
       return res.status(400).json({ success: false, error: 'Repository URL is required' });
     }
 
     const cleanUrl = url.trim();
+    const tokenToUse = (token && token.trim()) || config.githubToken || '';
+
+    // If rememberToken requested and token supplied, persist to config.json
+    if (token && token.trim() && rememberToken) {
+      config.githubToken = token.trim();
+      try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+      } catch (_) {}
+    }
+
     const repoName = (name && name.trim()) || cleanUrl.replace(/\.git$/, '').split('/').pop() || 'cloned-repo';
     const targetDir = customPath && customPath.trim()
       ? path.resolve(customPath.trim())
@@ -256,7 +266,7 @@ app.post('/api/repos/clone', async (req, res) => {
       return res.status(400).json({ success: false, error: `Directory already exists: ${targetDir}` });
     }
 
-    await gitOps.cloneRepository(targetDir, cleanUrl);
+    await gitOps.cloneRepository(targetDir, cleanUrl, tokenToUse);
 
     const registry = loadReposRegistry();
     const newId = 'repo_' + Date.now();
@@ -264,7 +274,7 @@ app.post('/api/repos/clone', async (req, res) => {
       id: newId,
       name: repoName,
       path: targetDir,
-      remoteUrl: cleanUrl,
+      remoteUrl: gitOps.sanitizeRemoteUrl(cleanUrl),
       isPrimary: false
     };
 
@@ -274,7 +284,11 @@ app.post('/api/repos/clone', async (req, res) => {
 
     res.json({ success: true, repository: newEntry });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.stderr || err.message });
+    res.status(500).json({ 
+      success: false, 
+      error: err.message || err.stderr,
+      isAuthError: Boolean(err.isAuthError)
+    });
   }
 });
 
@@ -423,9 +437,62 @@ app.get('/api/remote', async (req, res) => {
 app.post('/api/remote', async (req, res) => {
   try {
     const activeRepo = getActiveRepo(req);
-    const { url } = req.body;
-    await gitOps.setRemoteUrl(activeRepo.path, url);
-    res.json({ success: true, remoteUrl: url });
+    const { url, token } = req.body;
+    const tokenToUse = (token && token.trim()) || config.githubToken || '';
+    await gitOps.setRemoteUrl(activeRepo.path, url, tokenToUse);
+    res.json({ success: true, remoteUrl: gitOps.sanitizeRemoteUrl(url) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Get Saved Credentials Status (Token status & SSH Public Key)
+app.get('/api/credentials', (req, res) => {
+  try {
+    const hasToken = Boolean(config.githubToken && config.githubToken.trim().length > 0);
+    const tokenPreview = hasToken
+      ? (config.githubToken.slice(0, 4) + '...' + config.githubToken.slice(-4))
+      : '';
+
+    let sshPublicKey = '';
+    const os = require('os');
+    const sshDir = path.join(os.homedir(), '.ssh');
+    const possibleKeys = ['id_ed25519.pub', 'id_rsa.pub', 'id_ecdsa.pub'];
+    for (const keyFile of possibleKeys) {
+      const fullP = path.join(sshDir, keyFile);
+      if (fs.existsSync(fullP)) {
+        try {
+          sshPublicKey = fs.readFileSync(fullP, 'utf8').trim();
+          break;
+        } catch (_) {}
+      }
+    }
+
+    res.json({
+      success: true,
+      hasToken,
+      tokenPreview,
+      sshPublicKey
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Save or Clear GitHub Token
+app.post('/api/credentials', (req, res) => {
+  try {
+    const { token, clear } = req.body;
+    if (clear) {
+      delete config.githubToken;
+    } else if (token && token.trim()) {
+      config.githubToken = token.trim();
+    } else {
+      return res.status(400).json({ success: false, error: 'Token string is required' });
+    }
+
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+    res.json({ success: true, hasToken: Boolean(config.githubToken) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

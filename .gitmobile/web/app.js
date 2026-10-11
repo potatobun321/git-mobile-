@@ -134,7 +134,26 @@ const elements = {
   linkLocalPathInput: document.getElementById('linkLocalPathInput'),
   linkLocalNameInput: document.getElementById('linkLocalNameInput'),
   addRepoErrorMsg: document.getElementById('addRepoErrorMsg'),
-  confirmAddRepoBtn: document.getElementById('confirmAddRepoBtn')
+  confirmAddRepoBtn: document.getElementById('confirmAddRepoBtn'),
+  cloneRepoTokenInput: document.getElementById('cloneRepoTokenInput'),
+  rememberTokenCheckbox: document.getElementById('rememberTokenCheckbox'),
+  savedTokenStatusBadge: document.getElementById('savedTokenStatusBadge'),
+
+  // Credentials & Token Modal
+  openCredentialsModalBtn: document.getElementById('openCredentialsModalBtn'),
+  credentialsModal: document.getElementById('credentialsModal'),
+  globalGithubTokenInput: document.getElementById('globalGithubTokenInput'),
+  credentialsTokenActiveAlert: document.getElementById('credentialsTokenActiveAlert'),
+  tokenPreviewSpan: document.getElementById('tokenPreviewSpan'),
+  sshPublicKeyArea: document.getElementById('sshPublicKeyArea'),
+  copySshKeyBtn: document.getElementById('copySshKeyBtn'),
+  clearTokenBtn: document.getElementById('clearTokenBtn'),
+  saveCredentialsBtn: document.getElementById('saveCredentialsBtn'),
+  credentialsStatusMsg: document.getElementById('credentialsStatusMsg'),
+
+  // Files view header
+  fileViewFolderTitle: document.getElementById('fileViewFolderTitle'),
+  fileCountBadge: document.getElementById('fileCountBadge')
 };
 
 // Utilities
@@ -293,6 +312,7 @@ async function initApp() {
       await loadRemoteInfo();
       await loadRepoStatus();
       await loadQuickPapers();
+      await loadCredentialsInfo();
       checkEngineUpdates(true);
     }
   } catch (err) {
@@ -401,6 +421,7 @@ if (elements.openAddRepoModalBtn) {
   elements.openAddRepoModalBtn.addEventListener('click', () => {
     closeRepoDropdown();
     switchAddRepoTab('clone');
+    loadCredentialsInfo();
     openModal(elements.addRepoModal);
   });
 }
@@ -482,6 +503,9 @@ async function handleAddRepo() {
   if (state.addRepoTab === 'clone') {
     const url = elements.cloneRepoUrlInput.value.trim();
     const name = elements.cloneRepoNameInput.value.trim();
+    const token = elements.cloneRepoTokenInput ? elements.cloneRepoTokenInput.value.trim() : '';
+    const rememberToken = elements.rememberTokenCheckbox ? elements.rememberTokenCheckbox.checked : true;
+
     if (!url) {
       if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = 'Please enter a Git repository URL';
       return;
@@ -495,7 +519,7 @@ async function handleAddRepo() {
       const res = await apiRequest('/api/repos/clone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, name })
+        body: JSON.stringify({ url, name, token, rememberToken })
       });
 
       if (res.success) {
@@ -504,13 +528,18 @@ async function handleAddRepo() {
         closeModals();
         elements.cloneRepoUrlInput.value = '';
         elements.cloneRepoNameInput.value = '';
+        if (elements.cloneRepoTokenInput) elements.cloneRepoTokenInput.value = '';
         await loadRepositories();
         await loadRemoteInfo();
         await loadRepoStatus();
         await loadQuickPapers();
+        await loadCredentialsInfo();
       }
     } catch (err) {
       if (elements.addRepoErrorMsg) elements.addRepoErrorMsg.textContent = err.message;
+      if (err.isAuthError && elements.cloneRepoTokenInput) {
+        elements.cloneRepoTokenInput.focus();
+      }
     } finally {
       elements.confirmAddRepoBtn.disabled = false;
       elements.confirmAddRepoBtn.textContent = 'Clone Repository';
@@ -694,7 +723,96 @@ if (elements.saveGitUserBtn) {
     } catch (err) {
       showToast('Failed to save identity: ' + err.message, 'error');
     } finally {
-      elements.saveGitUserBtn.disabled = false;
+// GitHub Credentials & Token Management
+async function loadCredentialsInfo() {
+  try {
+    const res = await apiRequest('/api/credentials');
+    if (!res.success) return;
+
+    if (elements.savedTokenStatusBadge) {
+      elements.savedTokenStatusBadge.style.display = res.hasToken ? 'inline-block' : 'none';
+    }
+    if (elements.credentialsTokenActiveAlert) {
+      elements.credentialsTokenActiveAlert.style.display = res.hasToken ? 'block' : 'none';
+    }
+    if (elements.tokenPreviewSpan) {
+      elements.tokenPreviewSpan.textContent = res.tokenPreview || '';
+    }
+    if (elements.clearTokenBtn) {
+      elements.clearTokenBtn.style.display = res.hasToken ? 'inline-block' : 'none';
+    }
+    if (elements.sshPublicKeyArea) {
+      elements.sshPublicKeyArea.value = res.sshPublicKey || 'No ~/.ssh/*.pub key found. Use a GitHub Personal Access Token (PAT) above or generate an SSH key with ssh-keygen.';
+    }
+  } catch (_) {}
+}
+
+if (elements.openCredentialsModalBtn) {
+  elements.openCredentialsModalBtn.addEventListener('click', async () => {
+    if (elements.credentialsStatusMsg) elements.credentialsStatusMsg.textContent = '';
+    await loadCredentialsInfo();
+    openModal(elements.credentialsModal);
+  });
+}
+
+if (elements.saveCredentialsBtn) {
+  elements.saveCredentialsBtn.addEventListener('click', async () => {
+    const token = elements.globalGithubTokenInput.value.trim();
+    if (!token) {
+      if (elements.credentialsStatusMsg) elements.credentialsStatusMsg.textContent = 'Please enter a GitHub Personal Access Token';
+      return;
+    }
+    try {
+      elements.saveCredentialsBtn.disabled = true;
+      const res = await apiRequest('/api/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      if (res.success) {
+        showToast('GitHub token saved successfully', 'success');
+        elements.globalGithubTokenInput.value = '';
+        await loadCredentialsInfo();
+        closeModals();
+      }
+    } catch (err) {
+      if (elements.credentialsStatusMsg) elements.credentialsStatusMsg.textContent = err.message;
+    } finally {
+      elements.saveCredentialsBtn.disabled = false;
+    }
+  });
+}
+
+if (elements.clearTokenBtn) {
+  elements.clearTokenBtn.addEventListener('click', async () => {
+    try {
+      await apiRequest('/api/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clear: true })
+      });
+      showToast('GitHub token removed', 'info');
+      await loadCredentialsInfo();
+      closeModals();
+    } catch (err) {
+      if (elements.credentialsStatusMsg) elements.credentialsStatusMsg.textContent = err.message;
+    }
+  });
+}
+
+if (elements.copySshKeyBtn) {
+  elements.copySshKeyBtn.addEventListener('click', () => {
+    const key = elements.sshPublicKeyArea.value;
+    if (key && !key.startsWith('No ~/.ssh/')) {
+      navigator.clipboard.writeText(key).then(() => {
+        showToast('SSH key copied to clipboard!', 'success');
+      }).catch(() => {
+        elements.sshPublicKeyArea.select();
+        document.execCommand('copy');
+        showToast('SSH key copied!', 'success');
+      });
+    } else {
+      showToast('No SSH key found to copy', 'warning');
     }
   });
 }
@@ -957,10 +1075,18 @@ async function loadFiles(folder = '') {
   state.currentFolder = folder;
   renderBreadcrumbs(folder);
 
+  if (elements.fileViewFolderTitle) {
+    elements.fileViewFolderTitle.textContent = folder ? folder : 'Repository Root';
+  }
+
   try {
     elements.fileListContainer.innerHTML = '<div class="empty-state">Loading tree...</div>';
     const res = await apiRequest(`/api/files?folder=${encodeURIComponent(folder)}`);
     if (!res.success) return;
+
+    if (elements.fileCountBadge) {
+      elements.fileCountBadge.textContent = `${res.files.length} items`;
+    }
 
     elements.fileListContainer.innerHTML = '';
     if (res.files.length === 0) {
