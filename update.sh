@@ -18,8 +18,9 @@ git remote set-url upstream https://github.com/potatobun321/git-mobile-.git 2>/d
 echo "  [1/2] Fetching latest upstream changes..."
 git fetch upstream master
 
-echo "  [2/2] Updating engine files (.gitmobile, startup.bat, startup.sh)..."
-git checkout upstream/master -- .gitmobile startup.bat startup.sh
+echo "  [2/2] Updating engine files (.gitmobile, startup.bat, startup.sh, update.sh, update.bat)..."
+git checkout upstream/master -- .gitmobile startup.bat startup.sh update.sh update.bat
+chmod +x startup.sh update.sh 2>/dev/null || true
 
 echo ""
 echo "  [Success] .gitmobile engine updated to the latest upstream version!"

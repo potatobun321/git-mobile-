@@ -56,7 +56,7 @@ body {
   color: var(--fg-default);
   line-height: 1.45;
   font-size: 14px;
-  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 16px));
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 20px) + 24px);
 }
 
 /* ==========================================================================
@@ -358,23 +358,69 @@ body {
 
 /* Engine Upstream Update Banner */
 .update-banner {
-  background-color: rgba(56, 139, 253, 0.12);
-  border-bottom: 1px solid rgba(56, 139, 253, 0.3);
-  padding: 8px 14px;
+  background: rgba(56, 139, 253, 0.12);
+  border-bottom: 1px solid rgba(56, 139, 253, 0.25);
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   font-size: 0.78rem;
   color: var(--accent-fg);
+  min-height: 42px;
+  box-sizing: border-box;
 }
 
 .update-banner-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-weight: 500;
+}
+
+.update-banner-left .update-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#applyEngineUpdateBtn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  height: 28px;
+  line-height: 1;
+}
+
+.btn-banner-close {
+  background: transparent;
+  border: none;
+  color: var(--fg-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+}
+
+.btn-banner-close:hover {
+  color: var(--fg-default);
 }
 
 .update-dot {
@@ -849,14 +895,25 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: var(--bottom-nav-height);
+  height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  min-height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   background-color: var(--canvas-subtle);
   border-top: 1px solid var(--border-default);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-around;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  z-index: 200;
+  padding-top: 5px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 500;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  touch-action: manipulation;
+  contain: layout paint;
 }
 
 .nav-item {
@@ -867,18 +924,21 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  font-size: 0.68rem;
-  font-weight: 600;
+  gap: 3px;
   cursor: pointer;
   flex: 1 1 0;
   min-width: 0;
-  height: 100%;
-  padding: 4px 2px;
+  height: 46px;
+  padding: 0 2px;
+  margin: 0;
   user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   outline: none;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease;
+  overflow: hidden;
+  contain: layout paint;
+  touch-action: manipulation;
 }
 
 .nav-item svg {
@@ -886,20 +946,27 @@ body {
   height: 18px !important;
   min-width: 18px !important;
   min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
   flex-shrink: 0 !important;
   display: block !important;
   fill: currentColor;
   pointer-events: none;
-  transition: transform 0.15s ease, fill 0.15s ease;
+  transition: fill 0.15s ease;
+  transform: none !important;
+  contain: layout paint size;
 }
 
 .nav-item span {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 600;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 1.1;
   pointer-events: none;
   flex-shrink: 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .nav-item.active {
@@ -910,8 +977,8 @@ body {
   fill: var(--accent-fg);
 }
 
-.nav-item:active svg {
-  transform: scale(0.9);
+.nav-item:active {
+  opacity: 0.65;
 }
 
 /* ==========================================================================

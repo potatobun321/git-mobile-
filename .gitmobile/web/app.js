@@ -587,21 +587,24 @@ async function checkEngineUpdates(quiet = false) {
     elements.engineStatusBadge.textContent = 'Checking...';
     elements.engineStatusBadge.className = 'state-pill';
     const res = await apiRequest('/api/engine/status');
-    const ver = res.currentVersion ? `v${res.currentVersion}` : 'v2.0.0';
+    const ver = res.currentVersion ? `v${res.currentVersion}` : 'v2.1.1';
 
     if (elements.engineStatusDesc) {
-      elements.engineStatusDesc.textContent = `Version ${ver} • Upstream: potatobun321/git-mobile- (engine files .gitmobile, startup.bat, startup.sh)`;
+      elements.engineStatusDesc.textContent = `Version ${ver} • Upstream: potatobun321/git-mobile- • Latest: ${res.upstreamCommit || 'master'}`;
     }
 
     if (res.updateAvailable) {
-      elements.engineUpdateBanner.style.display = 'flex';
-      elements.engineUpdateText.textContent = res.upstreamCommit ? `Update available: ${res.upstreamCommit}` : 'Engine update available';
+      if (sessionStorage.getItem('dismiss_engine_update_banner') !== 'true') {
+        elements.engineUpdateBanner.style.display = 'flex';
+      }
+      elements.engineUpdateText.textContent = 'Engine update available';
       elements.engineStatusBadge.textContent = `${ver} • Update Available`;
       elements.engineStatusBadge.className = 'state-pill dirty';
       elements.updateEngineCardBtn.style.display = 'inline-block';
       if (!quiet) showToast(`New .gitmobile update available!`, 'info');
     } else {
       elements.engineUpdateBanner.style.display = 'none';
+      sessionStorage.removeItem('dismiss_engine_update_banner');
       elements.engineStatusBadge.textContent = `${ver} • Up to date`;
       elements.engineStatusBadge.className = 'state-pill clean';
       elements.updateEngineCardBtn.style.display = 'none';
@@ -614,7 +617,7 @@ async function checkEngineUpdates(quiet = false) {
 }
 
 async function applyEngineUpdate() {
-  const confirmUpdate = confirm('Update .gitmobile core engine to the latest upstream version?\\n\\nYour personal notes, papers, and repository commits will remain completely safe.');
+  const confirmUpdate = confirm('Update .gitmobile core engine to the latest upstream version?\n\nYour personal notes, papers, and repository commits will remain completely safe.');
   if (!confirmUpdate) return;
 
   try {
@@ -626,6 +629,7 @@ async function applyEngineUpdate() {
 
     const res = await apiRequest('/api/engine/update', { method: 'POST' });
     if (res.success) {
+      sessionStorage.removeItem('dismiss_engine_update_banner');
       showToast('Engine updated! Reloading in 2s...', 'success');
       logToConsole('Engine update successful. Reloading client...', 'success');
       setTimeout(() => window.location.reload(), 2000);
@@ -643,6 +647,14 @@ async function applyEngineUpdate() {
 elements.checkEngineUpdatesBtn.addEventListener('click', () => checkEngineUpdates(false));
 elements.applyEngineUpdateBtn.addEventListener('click', applyEngineUpdate);
 elements.updateEngineCardBtn.addEventListener('click', applyEngineUpdate);
+
+const dismissEngineBannerBtn = document.getElementById('dismissEngineBannerBtn');
+if (dismissEngineBannerBtn) {
+  dismissEngineBannerBtn.addEventListener('click', () => {
+    elements.engineUpdateBanner.style.display = 'none';
+    sessionStorage.setItem('dismiss_engine_update_banner', 'true');
+  });
+}
 
 async function loadRemoteInfo() {
   try {

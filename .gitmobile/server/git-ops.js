@@ -564,27 +564,27 @@ async function checkEngineUpdates(repoPath) {
       await runGit(repoPath, ['fetch', 'upstream', 'master', '--depth=1']);
     }
 
-    // Direct tree comparison (HEAD vs upstream/master) does NOT require a merge-base
+    // Compare working directory files directly against upstream/master
+    // -c core.filemode=false prevents chmod (100755 vs 100644) from causing false positive update loops on Termux/Linux
+    // --ignore-space-at-eol prevents CRLF vs LF line ending false positives across OSes
     let diffRes;
     try {
       diffRes = await runGit(repoPath, [
+        '-c',
+        'core.filemode=false',
         'diff',
-        'HEAD',
+        '--name-only',
+        '--ignore-space-at-eol',
         'upstream/master',
         '--',
         '.gitmobile',
         'startup.bat',
-        'startup.sh'
+        'startup.sh',
+        'update.sh',
+        'update.bat'
       ]);
     } catch (_) {
-      diffRes = await runGit(repoPath, [
-        'diff',
-        'HEAD..upstream/master',
-        '--',
-        '.gitmobile',
-        'startup.bat',
-        'startup.sh'
-      ]);
+      diffRes = { stdout: '' };
     }
 
     const hasUpdates = Boolean(diffRes.stdout && diffRes.stdout.trim().length > 0);
@@ -595,9 +595,9 @@ async function checkEngineUpdates(repoPath) {
       upstreamCommit = commitRes.stdout.trim();
     } catch (_) {}
 
-    let currentVersion = '2.1.0';
+    let currentVersion = '2.1.1';
     try {
-      currentVersion = require('../package.json').version || '2.1.0';
+      currentVersion = require('../package.json').version || '2.1.1';
     } catch (_) {}
 
     return {
@@ -621,12 +621,20 @@ async function checkEngineUpdates(repoPath) {
 async function applyEngineUpdate(repoPath) {
   await ensureUpstreamRemote(repoPath);
 
-  // Preserve config.json if present
+  // Preserve config.json and repos.json if present
   const configPath = path.join(repoPath, '.gitmobile', 'config.json');
   let configBackup = null;
   if (fs.existsSync(configPath)) {
     try {
       configBackup = fs.readFileSync(configPath, 'utf8');
+    } catch (_) {}
+  }
+
+  const reposPath = path.join(repoPath, '.gitmobile', 'repos.json');
+  let reposBackup = null;
+  if (fs.existsSync(reposPath)) {
+    try {
+      reposBackup = fs.readFileSync(reposPath, 'utf8');
     } catch (_) {}
   }
 
@@ -640,13 +648,26 @@ async function applyEngineUpdate(repoPath) {
     '--',
     '.gitmobile',
     'startup.bat',
-    'startup.sh'
+    'startup.sh',
+    'update.sh',
+    'update.bat'
   ]);
 
-  // Restore preserved config.json
+  try {
+    fs.chmodSync(path.join(repoPath, 'startup.sh'), 0o755);
+    fs.chmodSync(path.join(repoPath, 'update.sh'), 0o755);
+  } catch (_) {}
+
+  // Restore preserved config.json and repos.json
   if (configBackup) {
     try {
       fs.writeFileSync(configPath, configBackup, 'utf8');
+    } catch (_) {}
+  }
+
+  if (reposBackup) {
+    try {
+      fs.writeFileSync(reposPath, reposBackup, 'utf8');
     } catch (_) {}
   }
 

@@ -17,8 +17,8 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-echo   [2/2] Updating engine files (.gitmobile, startup.bat, startup.sh)...
-git checkout upstream/master -- .gitmobile startup.bat startup.sh
+echo   [2/2] Updating engine files (.gitmobile, startup.bat, startup.sh, update.sh, update.bat)...
+git checkout upstream/master -- .gitmobile startup.bat startup.sh update.sh update.bat
 if %errorlevel% neq 0 (
   echo   [Error] Failed to checkout engine files.
   pause
